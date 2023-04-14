@@ -31,6 +31,31 @@ fn bind_console(console_object: Local<Object>, scope: &mut HandleScope) {
     }
 }
 
+fn inspect_object(value: Local<v8::Value>, scope: &mut HandleScope) {
+    // If value is not an object, print it as a string
+    if !value.is_object() {
+        let value_str = value.to_string(scope).unwrap();
+        let value_str = value_str.to_rust_string_lossy(scope);
+        println!("INSPECT: {}", value_str);
+        return;
+    }
+
+    let object = value.to_object(scope).unwrap();
+    let keys = object
+        .get_own_property_names(scope, v8::GetPropertyNamesArgs::default())
+        .unwrap();
+    let keys_len = keys.length();
+    for i in 0..keys_len {
+        let key = keys.get_index(scope, i).unwrap();
+        let key_str = key.to_string(scope).unwrap();
+        let key_str = key_str.to_rust_string_lossy(scope);
+        let value = object.get(scope, key.into()).unwrap();
+        let value_str = value.to_string(scope).unwrap();
+        let value_str = value_str.to_rust_string_lossy(scope);
+        println!("INSPECT {}: {}", key_str, value_str);
+    }
+}
+
 fn run_script(script: &str) -> Option<String> {
     // Create a new V8 isolate
     let isolate = &mut v8::Isolate::new(Default::default());
@@ -44,16 +69,24 @@ fn run_script(script: &str) -> Option<String> {
     // Create a new V8 ContextScope for managing the lifetime of V8 handles
     let scope = &mut v8::ContextScope::new(scope, context);
 
-    // Bind console functions to the global console object
+    // Get global object
     let global = context.global(scope);
+
+    // Destroy default console object
     let console_key = v8::String::new_external_onebyte_static(scope, b"console").unwrap();
-    let console_object = global.get(scope, console_key.into()).unwrap();
-    let console_object = console_object.to_object(scope).unwrap();
+    global.delete(scope, console_key.into());
+
+    // Define console as new empty object
+    let console_object = v8::Object::new(scope);
+    let global = context.global(scope);
+    global.set(scope, console_key.into(), console_object.into());
     bind_console(console_object, scope);
 
     let code = v8::String::new(scope, script).unwrap();
     let script = v8::Script::compile(scope, code, None).unwrap();
+
     let result = script.run(scope).unwrap();
+    inspect_object(result, scope);
     let result = result.to_string(scope).unwrap();
 
     Some(result.to_rust_string_lossy(scope))
@@ -70,12 +103,36 @@ fn main() {
     // Initialize V8 runtime
     initialize_v8();
 
-    let result = crate::run_script("console.log('hello world')");
-    println!("result: {:?} ||", result);
-    let result = crate::run_script("console.info('hello world')");
-    println!("result: {:?} ||", result);
-    let result = crate::run_script("console.info((console.context))");
-    println!("result: {:?} ||", result);
+    // Run hello world script with console.log
+    {
+        let result = crate::run_script("console.log('hello world')");
+        println!("result: {:?} ||", result);
+    }
+    // Run hello world script with console.info
+    {
+        let result = crate::run_script("console.info('hello world')");
+        println!("result: {:?} ||", result);
+    }
+    // Run hello world script with console.error
+    {
+        let result = crate::run_script("console.error('hello world')");
+        println!("result: {:?} ||", result);
+    }
+    // Eval console object
+    {
+        let result = crate::run_script("console");
+        println!("result: {:?} ||", result);
+    }
+    // Eval console object keys
+    {
+        let result = crate::run_script("Object.keys(console)");
+        println!("result: {:?} ||", result);
+    }
+    // Eval 1+1
+    {
+        let result = crate::run_script("1+1");
+        println!("result: {:?} ||", result);
+    }
 }
 
 #[cfg(test)]
@@ -117,7 +174,7 @@ mod tests {
         assert!(result.contains(&"log")); // 1.1.6 - https://console.spec.whatwg.org/#log
         assert!(result.contains(&"table")); // 1.1.7 - https://console.spec.whatwg.org/#table
         assert!(result.contains(&"trace")); // 1.1.8 - https://console.spec.whatwg.org/#trace
-        assert!(result.contains(&"warn"));  // 1.1.9 - https://console.spec.whatwg.org/#warn
+        assert!(result.contains(&"warn")); // 1.1.9 - https://console.spec.whatwg.org/#warn
         assert!(result.contains(&"dir")); // 1.1.10 - https://console.spec.whatwg.org/#dir
         assert!(result.contains(&"dirxml")); // 1.1.11 - https://console.spec.whatwg.org/#dirxml
 
