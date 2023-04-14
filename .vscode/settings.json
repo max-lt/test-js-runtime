@@ -4,4 +4,7 @@
   "rust-analyzer.inlayHints.bindingModeHints.enable": false,
   "rust-analyzer.inlayHints.typeHints.enable": false,
   "rust-analyzer.inlayHints.parameterHints.enable": false,
+  "cSpell.words": [
+    "onebyte"
+  ],
 }
