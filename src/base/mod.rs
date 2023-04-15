@@ -41,6 +41,7 @@ impl<'p> JsContext<'p> {
 
             let scope = &mut ContextScope::new(scope, context);
             crate::console::bind_console(scope, context);
+            crate::base64::bind_base64(scope, context);
 
             let context = Global::new(scope, context);
 

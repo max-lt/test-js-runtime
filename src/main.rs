@@ -3,6 +3,7 @@ mod console;
 mod inspect;
 mod utils;
 mod v8_ext;
+mod base64;
 
 use crate::base::JsRuntime;
 
@@ -40,7 +41,16 @@ fn main() {
         let mut ctx = runtime.create_context();
         ctx.run_script(
             r#"
-              console.log(globalThis);
+              console.log(typeof globalThis);
+              console.log(Object.keys(globalThis), Object.keys(globalThis).includes("console"));
+              console.log("console", typeof globalThis.console);
+              console.log("atob", typeof globalThis.atob);
+              console.log("setInterval", typeof globalThis.setInterval);
+              console.log("typeof atob", typeof atob, typeof atob !== 'undefined' && atob("aGVsbG8=", 5));
+              console.log(atob('eyJhbGciOiJIUzI1NiJ9'));
+              console.log(atob('e30='));
+              console.log(atob('e30'));
+              console.log(btoa('bonjour'), atob(btoa('bonjour')));
             "#,
         );
     }
