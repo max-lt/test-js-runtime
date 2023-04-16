@@ -9,27 +9,39 @@ use crate::base::JsRuntime;
 
 fn main() {
     let mut runtime = JsRuntime::new();
-
     let mut ctx = runtime.create_context();
 
-    // Get file to read from args
+    // Get arguments
     let args: Vec<String> = std::env::args().collect();
 
-    if args.len() < 2 {
-        println!("Usage: {} <file>", args[0]);
-        std::process::exit(1);
-    }
+    let result = match args.get(1) {
+        Some(arg) if arg == "--eval" => {
+            match args.get(2) {
+                Some(code) => ctx.run_script(code),
+                None => {
+                    eprintln!("Usage: {} --eval <code>", args[0]);
+                    std::process::exit(1);
+                }
+            }
+        }
+        Some(file) => {
+            let file = std::path::Path::new(file).canonicalize().unwrap_or_else(|_| {
+                eprintln!("Error: Invalid file path");
+                std::process::exit(1);
+            });
 
-    let file = &args[1];
+            let contents = std::fs::read_to_string(&file).unwrap_or_else(|_| {
+                eprintln!("Error: Unable to read the file");
+                std::process::exit(1);
+            });
 
-    // Adjust file path from user context
-    let file = std::path::Path::new(file).canonicalize().unwrap();
-
-    // Read file
-    let contents = std::fs::read_to_string(file).expect("Something went wrong reading the file");
-
-    // Run script
-    let result = ctx.run_script(&contents);
+            ctx.run_script(&contents)
+        }
+        None => {
+            eprintln!("Usage: {} <file> or {} --eval <code>", args[0], args[0]);
+            std::process::exit(1);
+        }
+    };
 
     println!("result: {:?}", result);
 }
