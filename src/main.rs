@@ -1,9 +1,9 @@
 mod base;
+mod base64;
 mod console;
 mod inspect;
 mod utils;
 mod v8_ext;
-mod base64;
 
 use crate::base::JsRuntime;
 
@@ -12,48 +12,26 @@ fn main() {
 
     let mut ctx = runtime.create_context();
 
-    //
-    {
-        ctx.run_script(
-            r#"
-                let a = 1;
-                console.log({ name: 'test', f: 1 });
-                console.log({ name: 'hello', a });
-                console.log(console);
-                console.log(console.log, typeof console.log);
-                console.log( 'toto',console.count, typeof console.count);
-                console.log(typeof Console);
-            "#,
-        );
-        ctx.run_script(
-            r#"
-            console.log({ name: 'hello', a: typeof a });
-          "#,
-        );
+    // Get file to read from args
+    let args: Vec<String> = std::env::args().collect();
 
-        let mut ctx = runtime.create_context();
-        ctx.run_script(
-            r#"
-        console.log({ name: 'hello', a: typeof a });
-      "#,
-        );
-
-        let mut ctx = runtime.create_context();
-        ctx.run_script(
-            r#"
-              console.log(typeof globalThis);
-              console.log(Object.keys(globalThis), Object.keys(globalThis).includes("console"));
-              console.log("console", typeof globalThis.console);
-              console.log("atob", typeof globalThis.atob);
-              console.log("setInterval", typeof globalThis.setInterval);
-              console.log("typeof atob", typeof atob, typeof atob !== 'undefined' && atob("aGVsbG8=", 5));
-              console.log(atob('eyJhbGciOiJIUzI1NiJ9'));
-              console.log(atob('e30='));
-              console.log(atob('e30'));
-              console.log(btoa('bonjour'), atob(btoa('bonjour')));
-            "#,
-        );
+    if args.len() < 2 {
+        println!("Usage: {} <file>", args[0]);
+        std::process::exit(1);
     }
+
+    let file = &args[1];
+
+    // Adjust file path from user context
+    let file = std::path::Path::new(file).canonicalize().unwrap();
+
+    // Read file
+    let contents = std::fs::read_to_string(file).expect("Something went wrong reading the file");
+
+    // Run script
+    let result = ctx.run_script(&contents);
+
+    println!("result: {:?}", result);
 }
 
 #[cfg(test)]

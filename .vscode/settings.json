@@ -5,6 +5,7 @@
   "rust-analyzer.inlayHints.typeHints.enable": true,
   "rust-analyzer.inlayHints.parameterHints.enable": false,
   "cSpell.words": [
+    "canonicalize",
     "onebyte"
   ],
   "rust-analyzer.linkedProjects": [
