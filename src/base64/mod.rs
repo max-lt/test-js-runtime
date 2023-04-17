@@ -1,10 +1,5 @@
 use base64::Engine;
-use std::fmt::Write;
 use v8::{Context, HandleScope, Local};
-
-// mod crate::v8_ext;
-use crate::inspect::inspect_v8_value;
-use crate::v8_ext::iterator::FunctionCallbackArgumentsExt;
 
 fn add_padding(base64_input: String) -> String {
     let padding_needed = (4 - base64_input.len() % 4) % 4;

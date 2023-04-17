@@ -1,6 +1,7 @@
 mod base;
 mod base64;
 mod console;
+mod event_listener;
 mod inspect;
 mod utils;
 mod v8_ext;
