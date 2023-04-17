@@ -48,7 +48,7 @@ impl<'p> JsContext<'p> {
             scope.set_slot(JsState { handler: None });
 
             crate::console::bind_console(scope, context);
-            crate::base64::bind_base64(scope, context);
+            crate::base64_utils::bind_base64(scope, context);
             crate::event_listener::bind_event_listener(scope, context);
 
             let context = Global::new(scope, context);
