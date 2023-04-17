@@ -3,11 +3,30 @@ use v8::HandleScope;
 use crate::base::JsExt;
 
 fn bind_base64(scope: &mut HandleScope) {
-    let script = crate::utils::load_script(scope, "atob.js", include_str!("atob.js"));
-    let _result = script.run(scope).unwrap();
+    let global = scope.get_current_context().global(scope);
 
-    let script = crate::utils::load_script(scope, "btoa.js", include_str!("btoa.js"));
-    let _result = script.run(scope).unwrap();
+    let atob_key = v8::String::new_external_onebyte_static(scope, b"atob").unwrap();
+    let atob = {
+        let context = v8::Context::new(scope);
+        let global = context.global(scope);
+        let scope = &mut v8::ContextScope::new(scope, context);
+        let script = crate::utils::load_script(scope, "atob.js", include_str!("atob.js"));
+        let _result = script.run(scope).unwrap();
+
+        global.get(scope, atob_key.into()).unwrap()
+    };
+    global.set(scope, atob_key.into(), atob);
+
+    let btoa_key = v8::String::new_external_onebyte_static(scope, b"btoa").unwrap();
+    let btoa = {
+        let context = v8::Context::new(scope);
+        let global = context.global(scope);
+        let scope = &mut v8::ContextScope::new(scope, context);
+        let script = crate::utils::load_script(scope, "btoa.js", include_str!("btoa.js"));
+        let _result = script.run(scope).unwrap();
+        global.get(scope, btoa_key.into()).unwrap()
+    };
+    global.set(scope, btoa_key.into(), btoa);
 }
 
 pub struct Base64UtilsExt;
