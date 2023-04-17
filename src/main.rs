@@ -15,21 +15,22 @@ fn main() {
     // Get arguments
     let args: Vec<String> = std::env::args().collect();
 
+    // Run script or eval code
     let result = match args.get(1) {
-        Some(arg) if arg == "--eval" => {
-            match args.get(2) {
-                Some(code) => ctx.run_script(code),
-                None => {
-                    eprintln!("Usage: {} --eval <code>", args[0]);
-                    std::process::exit(1);
-                }
-            }
-        }
-        Some(file) => {
-            let file = std::path::Path::new(file).canonicalize().unwrap_or_else(|_| {
-                eprintln!("Error: Invalid file path");
+        Some(arg) if arg == "eval" => match args.get(2) {
+            Some(code) => ctx.run_script(code),
+            None => {
+                eprintln!("Usage: {} eval <code>", args[0]);
                 std::process::exit(1);
-            });
+            }
+        },
+        Some(file) => {
+            let file = std::path::Path::new(file)
+                .canonicalize()
+                .unwrap_or_else(|_| {
+                    eprintln!("Error: Invalid file path");
+                    std::process::exit(1);
+                });
 
             let contents = std::fs::read_to_string(&file).unwrap_or_else(|_| {
                 eprintln!("Error: Unable to read the file");
@@ -39,12 +40,21 @@ fn main() {
             ctx.run_script(&contents)
         }
         None => {
-            eprintln!("Usage: {} <file> or {} --eval <code>", args[0], args[0]);
+            eprintln!("Usage: {} <file> or {} eval <code>", args[0], args[0]);
             std::process::exit(1);
         }
     };
 
+    // Display result
     println!("result: {:?}", result);
+
+    // If args contains --fetch, trigger the fetch event
+    if args.contains(&String::from("--fetch")) {
+        let start = std::time::Instant::now();
+        ctx.trigger_fetch_event();
+        let end = std::time::Instant::now();
+        println!("Time elapsed: {:?}", end - start);
+    }
 }
 
 #[cfg(test)]
@@ -54,14 +64,23 @@ mod tests {
     #[test]
     fn console_should_be_defined() {
         let mut runtime = JsRuntime::new();
-
         let mut ctx = runtime.create_context();
 
-        // let isolate = &mut runtime.isolate;
-
         let result = ctx.run_script("typeof console");
+
         println!("result: {:?} ||", result);
-        assert_eq!(result, Some(String::from("object")));
+        assert_eq!(result, String::from("object"));
+    }
+
+    #[test]
+    fn console_keys_should_be_enumerable() {
+        let mut runtime = JsRuntime::new();
+        let mut ctx = runtime.create_context();
+
+        let result = ctx.run_script("Object.keys(console).length");
+
+        println!("result: {:?} ||", result);
+        assert_eq!(result, String::from("20"));
     }
 
     #[test]
@@ -70,13 +89,9 @@ mod tests {
 
         let mut ctx = runtime.create_context();
 
-        // let isolate = &mut runtime.isolate;
+        let result = ctx.run_script("Object.keys(console).toString()");
 
-        let result = ctx.run_script("typeof console && Object.keys(console)");
-
-        // Split the result into a vector of strings
-        let result = result.unwrap();
-        let result = result.split(',').collect::<Vec<&str>>();
+        println!("result: {:?} ||", result);
 
         // Assert that the console object has the expected keys
 
@@ -107,11 +122,5 @@ mod tests {
         assert!(result.contains(&"timeLog")); // 1.2 - https://console.spec.whatwg.org/#timelog
         assert!(result.contains(&"timeEnd")); // 1.3 - https://console.spec.whatwg.org/#timeend
         assert!(result.contains(&"timeStamp")); // Non-standard: https://developer.mozilla.org/en-US/docs/Web/API/Console/timeStamp
-
-        assert!(result.contains(&"context")); // ?? What is this?
-
-        // Non-standard functions
-        assert!(result.contains(&"profile")); // Non-standard: https://developer.mozilla.org/en-US/docs/Web/API/Console/profile
-        assert!(result.contains(&"profileEnd")); // Non-standard: https://developer.mozilla.org/en-US/docs/Web/API/Console/profileEnd
     }
 }

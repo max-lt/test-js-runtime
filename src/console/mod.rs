@@ -50,20 +50,19 @@ pub fn bind_console(scope: &mut HandleScope, context: Local<Context>) {
     let _result = script.run(scope).unwrap();
 
     // Get Console class
-    let console_key = v8::String::new_external_onebyte_static(scope, b"Console").unwrap();
-    let console_class = global.get(scope, console_key.into()).unwrap();
-
-    // Create an instance of Console class
-    let console_ctor: Local<v8::Function> = console_class.try_into().unwrap();
+    let console_key = v8::String::new_external_onebyte_static(scope, b"buildConsole").unwrap();
+    let console_factory = global.get(scope, console_key.into()).unwrap();
+    let console_factory: Local<v8::Function> = console_factory.try_into().unwrap();
 
     // Set the logger_callback function as 'consoleLogger' property of the global object
     let console_log_template = v8::FunctionTemplate::new(scope, logger_callback);
     let console_log_function = console_log_template.get_function(scope).unwrap();
 
-    // Set the Console instance as a property of the global object
-    let console_instance_key = v8::String::new_external_onebyte_static(scope, b"console").unwrap();
-    let console_instance = console_ctor
-        .new_instance(scope, &[console_log_function.into()])
+      // Set the Console instance as a property of the global object
+    let undefined = v8::undefined(scope);
+    let console_instance_key: Local<v8::String> = v8::String::new_external_onebyte_static(scope, b"console").unwrap();
+    let console_instance = console_factory
+        .call(scope, undefined.into(), &[console_log_function.into()])
         .unwrap();
 
     global.set(scope, console_instance_key.into(), console_instance.into());

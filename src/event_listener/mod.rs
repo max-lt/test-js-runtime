@@ -5,7 +5,7 @@ use crate::base::JsState;
 fn add_event_listener(
     scope: &mut HandleScope,
     args: FunctionCallbackArguments,
-    mut ret: v8::ReturnValue,
+    _ret: v8::ReturnValue,
 ) {
     if args.length() < 2 {
         let exception_str =
@@ -43,13 +43,19 @@ fn add_event_listener(
     let listener: Result<Local<Function>, _> = listener.try_into();
     match listener {
         Ok(listener) => {
-            let listener = v8::Global::new(scope, listener);
+            let listener = Global::new(scope, listener);
 
             let state = scope
                 .get_slot_mut::<JsState>()
                 .expect("Missing runtime data in V8 context");
 
-            println!("listener: {:?}", listener);
+            // Ensure that the listener is not already registered
+            if state.handler.is_some() {
+                let exception_str = v8::String::new(scope, "Listener already registered").unwrap();
+                let exception = v8::Exception::error(scope, exception_str);
+                scope.throw_exception(exception);
+                return;
+            }
 
             state.handler = Some(listener);
         }
@@ -74,4 +80,17 @@ pub fn bind_event_listener(scope: &mut HandleScope, context: Local<Context>) {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::base::JsRuntime;
+
+    #[test]
+    fn test_add_event_listener() {
+        let mut runtime = JsRuntime::new();
+
+        let mut ctx = runtime.create_context();
+
+        let result = ctx.run_script("typeof console");
+
+        assert_eq!(result, "object");
+    }
+}

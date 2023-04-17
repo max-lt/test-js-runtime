@@ -12,20 +12,23 @@ curl https://sh.rustup.rs -sSf | sh
 
 ## Usage
 
-### Run a single file
+### Options
+```bash
+USAGE:
+  rs-engine [filepath or eval script] [OPTIONS]
+
+OPTIONS:
+  --fetch   Trigger the fetch event
+```
+
+### Examples
 ```bash
 # Development
 cargo run path/to/file.js
+cargo run eval "console.log('Hello World!')"
 # Build
-./target/release/rs-engine path/to/file.js
-```
-
-### Run a single command
-```bash
-# Development
-cargo run -- --eval "console.log('Hello World!')"
-# Build
-./target/release/rs-engine --eval "console.log('Hello World!')"
+./target/release/rs-engine path/to/file.js --fetch
+./target/release/rs-engine eval "console.log('Hello World!')"
 ```
 
 ## Building

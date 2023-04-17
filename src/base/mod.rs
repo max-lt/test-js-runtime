@@ -59,7 +59,7 @@ impl<'p> JsContext<'p> {
         JsContext { runtime, context }
     }
 
-    pub fn run_script(&mut self, script: &str) -> Option<String> {
+    pub fn run_script(&mut self, script: &str) -> String {
         let scope = &mut HandleScope::new(&mut self.runtime.isolate);
 
         let context = Local::new(scope, &self.context);
@@ -73,33 +73,38 @@ impl<'p> JsContext<'p> {
         inspect_v8_value(result, scope);
         let result = result.to_string(scope).unwrap();
 
+        result.to_rust_string_lossy(scope)
+    }
+
+    pub fn trigger_fetch_event(&mut self) -> Option<String> {
+        let scope = &mut HandleScope::new(&mut self.runtime.isolate);
+
+        let context = Local::new(scope, &self.context);
+        let scope = &mut ContextScope::new(scope, context);
+
         // Check if script registered event listeners
-        let cloned_handler = {
+        let handler = {
             let state = scope
                 .get_slot::<JsState>()
                 .expect("Missing runtime data in V8 context");
 
             match &state.handler {
-                Some(handler) => {
-                    println!("Handler found");
-                    Some(handler.clone())
-                }
+                Some(handler) => Some(handler.clone()),
                 None => {
-                    println!("No handler");
+                    println!("No handler registered");
                     None
                 }
             }
         };
 
-        if let Some(handler) = cloned_handler {
-            let handler = Local::new(scope, &handler);
-
-            let args = vec![v8::Integer::new(scope, 1).into()];
-            let this = v8::undefined(scope).into();
-            let result = handler.call(scope, this, &args).unwrap();
-            println!("event result: {:?}", inspect_v8_value(result, scope));
+        if handler.is_none() {
+            return None;
         }
 
-        Some(result.to_rust_string_lossy(scope))
+        let handler = Local::new(scope, handler.unwrap());
+        let undefined = v8::undefined(scope).into();
+        let result = handler.call(scope, undefined, &[undefined]).unwrap();
+        println!("event result: {:?}", inspect_v8_value(result, scope));
+        Some(result.to_string(scope).unwrap().to_rust_string_lossy(scope))
     }
 }
