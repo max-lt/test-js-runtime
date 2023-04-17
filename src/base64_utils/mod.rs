@@ -1,106 +1,90 @@
-use base64::Engine;
-use v8::{Context, HandleScope, Local};
+use v8::HandleScope;
 
-fn add_padding(base64_input: String) -> String {
-    let padding_needed = (4 - base64_input.len() % 4) % 4;
-    format!("{}{}", base64_input, "=".repeat(padding_needed))
+use crate::base::JsExt;
+
+fn bind_base64(scope: &mut HandleScope) {
+    let script = crate::utils::load_script(scope, "atob.js", include_str!("atob.js"));
+    let _result = script.run(scope).unwrap();
+
+    let script = crate::utils::load_script(scope, "btoa.js", include_str!("btoa.js"));
+    let _result = script.run(scope).unwrap();
 }
 
-fn atob(scope: &mut HandleScope, args: v8::FunctionCallbackArguments, mut ret: v8::ReturnValue) {
-    // Check if there's at least one argument
-    if args.length() < 1 {
-        let exception_str =
-            v8::String::new(scope, "1 argument required, but only 0 present").unwrap();
-        let exception = v8::Exception::error(scope, exception_str);
-        scope.throw_exception(exception);
-        return;
-    }
+pub struct Base64UtilsExt;
 
-    let str = args.get(0);
-    let str = add_padding(str.to_rust_string_lossy(scope));
-
-    let engine = base64::engine::general_purpose::URL_SAFE;
-    match engine.decode(&str) {
-        Ok(decoded) => {
-            // Convert the decoded Vec<u8> to a V8 string and set it as the return value
-            let decoded_str = v8::String::new(scope, &String::from_utf8_lossy(&decoded)).unwrap();
-            ret.set(decoded_str.into());
-        }
-        Err(_) => {
-            // Handle base64 decode error, for example, by throwing a V8 exception
-            let exception_str = v8::String::new(scope, "Invalid base64 input string").unwrap();
-            let exception = v8::Exception::error(scope, exception_str);
-            scope.throw_exception(exception);
-        }
-    }
-}
-
-fn btoa(scope: &mut HandleScope, args: v8::FunctionCallbackArguments, mut ret: v8::ReturnValue) {
-    // Check if there's at least one argument
-    if args.length() < 1 {
-        let exception_str =
-            v8::String::new(scope, "1 argument required, but only 0 present").unwrap();
-        let exception = v8::Exception::error(scope, exception_str);
-        scope.throw_exception(exception);
-        return;
-    }
-
-    // Get the first argument and convert it to a Rust string
-    let input_str = args.get(0);
-    let input_str = input_str.to_rust_string_lossy(scope);
-
-    // Encode the input string as base64
-    let engine = base64::engine::general_purpose::URL_SAFE;
-    let encoded = engine.encode(&input_str.into_bytes());
-
-    // Convert the encoded base64 string to a V8 string and set it as the return value
-    let encoded_str = v8::String::new(scope, &encoded).unwrap();
-    ret.set(encoded_str.into());
-}
-
-pub fn bind_base64(scope: &mut HandleScope, context: Local<Context>) {
-    let global = context.global(scope);
-
-    // Bind atob
-    {
-        let atob_key = v8::String::new_external_onebyte_static(scope, b"atob").unwrap();
-        let function_template = v8::FunctionTemplate::new(scope, atob);
-        let function = function_template.get_function(scope).unwrap();
-        global.set(scope, atob_key.into(), function.into());
-    }
-
-    // Bind btoa
-    {
-        let btoa_key = v8::String::new_external_onebyte_static(scope, b"btoa").unwrap();
-        let function_template = v8::FunctionTemplate::new(scope, btoa);
-        let function = function_template.get_function(scope).unwrap();
-        global.set(scope, btoa_key.into(), function.into());
+impl JsExt for Base64UtilsExt {
+    fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
+        bind_base64(scope);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // use crate::base::JsRuntime;
+    use crate::base::JsContext;
+    use crate::base64_utils::Base64UtilsExt;
 
-    // #[test]
-    // fn test_console_log() {
-    //     let mut runtime = JsRuntime::new();
+    fn prepare_context() -> JsContext {
+        let mut ctx = JsContext::create();
 
-    //     // Run hello world script with console.log
-    //     {
-    //         let result = runtime.run_script("console.log('hello world')");
-    //         assert_eq!(result, Some("hello world".to_string()));
-    //     }
-    // }
+        ctx.register_module(&Base64UtilsExt);
 
-    // #[test]
-    // fn test_console_info() {
-    //     let mut runtime = JsRuntime::new();
+        ctx
+    }
 
-    //     // Run hello world script with console.info
-    //     {
-    //         let result = runtime.run_script("console.info('hello world')");
-    //         assert_eq!(result, Some("hello world".to_string()));
-    //     }
-    // }
+    #[test]
+    fn ext_should_set_atob() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.run_script("typeof atob === 'function'");
+
+        assert_eq!(result, "true");
+    }
+
+    #[test]
+    fn ext_should_set_btoa() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.run_script("typeof btoa === 'function'");
+
+        assert_eq!(result, "true");
+    }
+
+    #[test]
+    fn atob_decodes_base64_string() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.run_script("atob('SGVsbG8sIFdvcmxkIQ==')");
+
+        assert_eq!(result, "Hello, World!");
+    }
+
+    #[test]
+    #[should_panic]
+    fn atob_handles_invalid_characters() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.run_script("atob('SGVsbG8sIFdvcmxkI$Q=')");
+
+        assert_eq!(result, "InvalidCharacterError");
+    }
+
+    #[test]
+    #[should_panic]
+    fn btoa_handles_non_latin1_characters() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.run_script("btoa('Hello, 世界!')");
+
+        assert_eq!(result, "InvalidCharacterError");
+    }
+
+    #[test]
+    fn atob_should_handle_padding() {
+        let mut ctx = prepare_context();
+
+        let expect = "{}";
+
+        assert_eq!(expect, ctx.run_script("atob('e30')"));
+        assert_eq!(expect, ctx.run_script("atob('e30=')"));
+    }
 }

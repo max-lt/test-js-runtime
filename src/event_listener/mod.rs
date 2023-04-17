@@ -1,5 +1,6 @@
 use v8::{Context, Function, FunctionCallbackArguments, Global, HandleScope, Local};
 
+use crate::base::JsExt;
 use crate::base::JsState;
 
 fn add_event_listener(
@@ -68,8 +69,8 @@ fn add_event_listener(
     }
 }
 
-pub fn bind_event_listener(scope: &mut HandleScope, context: Local<Context>) {
-    let global = context.global(scope);
+fn bind_event_listener(scope: &mut HandleScope) {
+    let global = scope.get_current_context().global(scope);
 
     {
         let key = v8::String::new_external_onebyte_static(scope, b"addEventListener").unwrap();
@@ -79,18 +80,33 @@ pub fn bind_event_listener(scope: &mut HandleScope, context: Local<Context>) {
     }
 }
 
+pub struct EventListerExt;
+
+impl JsExt for EventListerExt {
+    fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
+        bind_event_listener(scope);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::base::JsRuntime;
+    use crate::event_listener::EventListerExt;
+    use crate::base::JsContext;
+
+    fn prepare_context() -> JsContext {
+        let mut ctx = JsContext::create();
+
+        ctx.register_module(&EventListerExt);
+
+        ctx
+    }
 
     #[test]
     fn test_add_event_listener() {
-        let mut runtime = JsRuntime::new();
+        let mut ctx = prepare_context();
 
-        let mut ctx = runtime.create_context();
+        let result = ctx.run_script("typeof addEventListener");
 
-        let result = ctx.run_script("typeof console");
-
-        assert_eq!(result, "object");
+        assert_eq!(result, "function");
     }
 }

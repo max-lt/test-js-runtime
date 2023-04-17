@@ -8,38 +8,29 @@ use v8::{Global, Local};
 use crate::inspect::inspect_v8_value;
 use crate::utils::initialize_v8;
 
-pub struct JsRuntime {
-    isolate: OwnedIsolate,
+pub trait JsExt {
+    //  fn bind(scope: &mut HandleScope, context: Local<Context>) -> ();
+    fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>);
 }
 
-pub struct JsContext<'p> {
-    runtime: &'p mut JsRuntime,
-    context: Global<Context>,
+pub struct JsContext {
+    isolate: OwnedIsolate,
+    context: Global<Context>
 }
 
 pub struct JsState {
     pub handler: Option<Global<v8::Function>>,
 }
 
-impl JsRuntime {
-    pub fn new() -> JsRuntime {
+impl JsContext {
+    pub fn create() -> Self {
         initialize_v8();
 
-        JsRuntime {
-            isolate: Isolate::new(Default::default()),
-        }
-    }
+        let mut isolate = Isolate::new(Default::default());
 
-    pub fn create_context<'p>(&'p mut self) -> JsContext<'p> {
-        JsContext::new(self)
-    }
-}
-
-impl<'p> JsContext<'p> {
-    fn new(runtime: &'p mut JsRuntime) -> Self {
         let context = {
             // let mut isolate = &runtime.isolate;
-            let scope = &mut HandleScope::new(&mut runtime.isolate);
+            let scope = &mut HandleScope::new(&mut isolate);
 
             let context = Context::new(scope);
 
@@ -47,20 +38,38 @@ impl<'p> JsContext<'p> {
 
             scope.set_slot(JsState { handler: None });
 
-            crate::console::bind_console(scope, context);
-            crate::base64_utils::bind_base64(scope, context);
-            crate::event_listener::bind_event_listener(scope, context);
-
             let context = Global::new(scope, context);
 
             context
         };
 
-        JsContext { runtime, context }
+        JsContext { isolate, context }
+    }
+
+    pub fn create_init() -> JsContext {
+        let mut context = JsContext::create();
+
+        context.register_module(&crate::console::ConsoleExt);
+        context.register_module(&crate::base64_utils::Base64UtilsExt);
+        context.register_module(&crate::event_listener::EventListerExt);
+
+        context
+    }
+
+    pub fn register_module<M: JsExt>(&mut self, module: &M) {
+        let scope = &mut HandleScope::new(&mut self.isolate);
+        let context = Local::new(scope, &self.context);
+        let scope = &mut ContextScope::new(scope, context);
+
+        module.bind(scope);
+    }
+
+    pub fn last_exception(&mut self) -> Option<String> {
+      None // TODO
     }
 
     pub fn run_script(&mut self, script: &str) -> String {
-        let scope = &mut HandleScope::new(&mut self.runtime.isolate);
+        let scope = &mut HandleScope::new(&mut self.isolate);
 
         let context = Local::new(scope, &self.context);
         let scope = &mut ContextScope::new(scope, context);
@@ -77,7 +86,7 @@ impl<'p> JsContext<'p> {
     }
 
     pub fn trigger_fetch_event(&mut self) -> Option<String> {
-        let scope = &mut HandleScope::new(&mut self.runtime.isolate);
+        let scope = &mut HandleScope::new(&mut self.isolate);
 
         let context = Local::new(scope, &self.context);
         let scope = &mut ContextScope::new(scope, context);

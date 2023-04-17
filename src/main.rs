@@ -6,11 +6,10 @@ mod inspect;
 mod utils;
 mod v8_ext;
 
-use crate::base::JsRuntime;
+use crate::base::JsContext;
 
 fn main() {
-    let mut runtime = JsRuntime::new();
-    let mut ctx = runtime.create_context();
+    let mut ctx = JsContext::create_init();
 
     // Get arguments
     let args: Vec<String> = std::env::args().collect();
