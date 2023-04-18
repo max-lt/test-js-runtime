@@ -105,7 +105,7 @@ mod tests {
     fn test_add_event_listener() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("typeof addEventListener");
+        let result = ctx.eval("typeof addEventListener").unwrap();
 
         assert_eq!(result, "function");
     }

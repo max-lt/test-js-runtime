@@ -5,8 +5,25 @@ use v8::Isolate;
 use v8::OwnedIsolate;
 use v8::{Global, Local};
 
+use std::error::Error;
+
 use crate::inspect::inspect_v8_value;
 use crate::utils::initialize_v8;
+
+#[derive(Debug, PartialEq)]
+pub enum EvalError {
+    CompileError,
+    RuntimeError,
+    ConversionError,
+}
+
+impl std::fmt::Display for EvalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for EvalError {}
 
 pub trait JsExt {
     //  fn bind(scope: &mut HandleScope, context: Local<Context>) -> ();
@@ -79,21 +96,21 @@ impl JsContext {
     }
 
     /// Evaluate a script
-    pub fn eval(&mut self, script: &str) -> String {
+    pub fn eval(&mut self, script: &str) -> Result<String, EvalError> {
         let scope = &mut HandleScope::new(&mut self.isolate);
 
         let context = Local::new(scope, &self.context);
         let scope = &mut ContextScope::new(scope, context);
 
-        let code = v8::String::new(scope, script).unwrap();
-        let script = v8::Script::compile(scope, code, None).unwrap();
+        let code = v8::String::new(scope, script).ok_or(EvalError::CompileError)?;
+        let script = v8::Script::compile(scope, code, None).ok_or(EvalError::CompileError)?;
 
         // Run script
-        let result = script.run(scope).unwrap();
-        inspect_v8_value(result, scope);
-        let result = result.to_string(scope).unwrap();
+        let result = script.run(scope).ok_or(EvalError::RuntimeError)?;
 
-        result.to_rust_string_lossy(scope)
+        let result = result.to_string(scope).ok_or(EvalError::ConversionError)?;
+
+        Ok(result.to_rust_string_lossy(scope))
     }
 
     /// Call fetch event handler
@@ -132,6 +149,7 @@ impl JsContext {
 
 #[cfg(test)]
 mod tests {
+    use crate::base::EvalError;
     use crate::base::JsContext;
 
     fn prepare_context() -> JsContext {
@@ -140,9 +158,44 @@ mod tests {
 
     /// The default context should have default console removed
     #[test]
-    fn console_should_be_defined() {
+    fn console_should_not_be_defined() {
         let mut ctx = prepare_context();
 
-        assert_eq!(ctx.eval("typeof console"), String::from("undefined"));
+        assert_eq!(
+            ctx.eval("typeof console").unwrap(),
+            String::from("undefined")
+        );
+    }
+
+    /// eval should not panic when js exception is thrown
+    #[test]
+    fn eval_should_not_panic_on_runtime_error() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.eval("throw new Error('test')");
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EvalError::RuntimeError);
+    }
+
+    /// eval should not panic when js exception is thrown
+    #[test]
+    fn eval_should_not_panic_on_compile_error() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.eval("}");
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EvalError::CompileError);
+    }
+
+    #[test]
+    fn eval_should_not_panic_on_dynamic_import() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.eval("import('moduleName')");
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), EvalError::CompileError);
     }
 }

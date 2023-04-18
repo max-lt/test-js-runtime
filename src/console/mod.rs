@@ -89,7 +89,7 @@ mod tests {
     fn console_should_be_defined() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("typeof console");
+        let result = ctx.eval("typeof console").unwrap();
 
         println!("result: {:?} ||", result);
         assert_eq!(result, String::from("object"));
@@ -99,7 +99,7 @@ mod tests {
     fn console_keys_should_be_enumerable() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("Object.keys(console).length");
+        let result = ctx.eval("Object.keys(console).length").unwrap();
 
         println!("result: {:?} ||", result);
         assert_eq!(result, String::from("20"));
@@ -109,7 +109,7 @@ mod tests {
     fn console_should_have_expected_keys() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("Object.keys(console).toString()");
+        let result = ctx.eval("Object.keys(console).toString()").unwrap();
 
         println!("result: {:?} ||", result);
 
@@ -119,51 +119,51 @@ mod tests {
 
         // 1.1. Logging functions - https://console.spec.whatwg.org/#logging
         assert!(result.contains(&"assert")); // 1.1.1 - https://console.spec.whatwg.org/#assert
-        assert_eq!(function_str, ctx.eval("typeof console.assert"));
+        assert_eq!(function_str, ctx.eval("typeof console.assert").unwrap());
         assert!(result.contains(&"clear")); // 1.1.2 - https://console.spec.whatwg.org/#clear
-        assert_eq!(function_str, ctx.eval("typeof console.clear"));
+        assert_eq!(function_str, ctx.eval("typeof console.clear").unwrap());
         assert!(result.contains(&"debug")); // 1.1.3 - https://console.spec.whatwg.org/#debug
-        assert_eq!(function_str, ctx.eval("typeof console.debug"));
+        assert_eq!(function_str, ctx.eval("typeof console.debug").unwrap());
         assert!(result.contains(&"error")); // 1.1.4 - https://console.spec.whatwg.org/#error
-        assert_eq!(function_str, ctx.eval("typeof console.error"));
+        assert_eq!(function_str, ctx.eval("typeof console.error").unwrap());
         assert!(result.contains(&"info")); // 1.1.5 - https://console.spec.whatwg.org/#info
-        assert_eq!(function_str, ctx.eval("typeof console.info"));
+        assert_eq!(function_str, ctx.eval("typeof console.info").unwrap());
         assert!(result.contains(&"log")); // 1.1.6 - https://console.spec.whatwg.org/#log
-        assert_eq!(function_str, ctx.eval("typeof console.log"));
+        assert_eq!(function_str, ctx.eval("typeof console.log").unwrap());
         assert!(result.contains(&"table")); // 1.1.7 - https://console.spec.whatwg.org/#table
-        assert_eq!(function_str, ctx.eval("typeof console.table"));
+        assert_eq!(function_str, ctx.eval("typeof console.table").unwrap());
         assert!(result.contains(&"trace")); // 1.1.8 - https://console.spec.whatwg.org/#trace
-        assert_eq!(function_str, ctx.eval("typeof console.trace"));
+        assert_eq!(function_str, ctx.eval("typeof console.trace").unwrap());
         assert!(result.contains(&"warn")); // 1.1.9 - https://console.spec.whatwg.org/#warn
-        assert_eq!(function_str, ctx.eval("typeof console.warn"));
+        assert_eq!(function_str, ctx.eval("typeof console.warn").unwrap());
         assert!(result.contains(&"dir")); // 1.1.10 - https://console.spec.whatwg.org/#dir
-        assert_eq!(function_str, ctx.eval("typeof console.dir"));
+        assert_eq!(function_str, ctx.eval("typeof console.dir").unwrap());
         assert!(result.contains(&"dirxml")); // 1.1.11 - https://console.spec.whatwg.org/#dirxml
-        assert_eq!(function_str, ctx.eval("typeof console.dirxml"));
+        assert_eq!(function_str, ctx.eval("typeof console.dirxml").unwrap());
 
         // 1.2. Counting functions - https://console.spec.whatwg.org/#counting
         assert!(result.contains(&"count")); // 1.2.1 - https://console.spec.whatwg.org/#count
-        assert_eq!(function_str, ctx.eval("typeof console.count"));
+        assert_eq!(function_str, ctx.eval("typeof console.count").unwrap());
         assert!(result.contains(&"countReset")); // 1.2.2 - https://console.spec.whatwg.org/#countreset
-        assert_eq!(function_str, ctx.eval("typeof console.countReset"));
+        assert_eq!(function_str, ctx.eval("typeof console.countReset").unwrap());
 
         // 1.3. Grouping functions - https://console.spec.whatwg.org/#grouping
         assert!(result.contains(&"group")); // 1.3.1 - https://console.spec.whatwg.org/#group
-        assert_eq!(function_str, ctx.eval("typeof console.group"));
+        assert_eq!(function_str, ctx.eval("typeof console.group").unwrap());
         assert!(result.contains(&"groupCollapsed")); // 1.3.2 - https://console.spec.whatwg.org/#groupcollapsed
-        assert_eq!(function_str, ctx.eval("typeof console.groupCollapsed"));
+        assert_eq!(function_str, ctx.eval("typeof console.groupCollapsed").unwrap());
         assert!(result.contains(&"groupEnd")); // 1.3.3 - https://console.spec.whatwg.org/#groupend
-        assert_eq!(function_str, ctx.eval("typeof console.groupEnd"));
+        assert_eq!(function_str, ctx.eval("typeof console.groupEnd").unwrap());
 
         // 1.4. Timing functions - https://console.spec.whatwg.org/#timing
         assert!(result.contains(&"time")); // 1.1 - https://console.spec.whatwg.org/#time
-        assert_eq!(function_str, ctx.eval("typeof console.time"));
+        assert_eq!(function_str, ctx.eval("typeof console.time").unwrap());
         assert!(result.contains(&"timeLog")); // 1.2 - https://console.spec.whatwg.org/#timelog
-        assert_eq!(function_str, ctx.eval("typeof console.timeLog"));
+        assert_eq!(function_str, ctx.eval("typeof console.timeLog").unwrap());
         assert!(result.contains(&"timeEnd")); // 1.3 - https://console.spec.whatwg.org/#timeend
-        assert_eq!(function_str, ctx.eval("typeof console.timeEnd"));
+        assert_eq!(function_str, ctx.eval("typeof console.timeEnd").unwrap());
         assert!(result.contains(&"timeStamp")); // Non-standard: https://developer.mozilla.org/en-US/docs/Web/API/Console/timeStamp
-        assert_eq!(function_str, ctx.eval("typeof console.timeStamp"));
+        assert_eq!(function_str, ctx.eval("typeof console.timeStamp").unwrap());
     }
 
     #[test]

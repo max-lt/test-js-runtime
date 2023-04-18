@@ -54,7 +54,7 @@ mod tests {
     fn ext_should_set_atob() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("typeof atob === 'function'");
+        let result = ctx.eval("typeof atob === 'function'").unwrap();
 
         assert_eq!(result, "true");
     }
@@ -63,7 +63,7 @@ mod tests {
     fn ext_should_set_btoa() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("typeof btoa === 'function'");
+        let result = ctx.eval("typeof btoa === 'function'").unwrap();
 
         assert_eq!(result, "true");
     }
@@ -72,7 +72,7 @@ mod tests {
     fn atob_decodes_base64_string() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkIQ==')");
+        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkIQ==')").unwrap();
 
         assert_eq!(result, "Hello, World!");
     }
@@ -82,7 +82,7 @@ mod tests {
     fn atob_handles_invalid_characters() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkI$Q=')");
+        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkI$Q=')").unwrap();
 
         assert_eq!(result, "InvalidCharacterError");
     }
@@ -92,7 +92,7 @@ mod tests {
     fn btoa_handles_non_latin1_characters() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("btoa('Hello, 世界!')");
+        let result = ctx.eval("btoa('Hello, 世界!')").unwrap();
 
         assert_eq!(result, "InvalidCharacterError");
     }
@@ -103,7 +103,7 @@ mod tests {
 
         let expect = "{}";
 
-        assert_eq!(expect, ctx.eval("atob('e30')"));
-        assert_eq!(expect, ctx.eval("atob('e30=')"));
+        assert_eq!(expect, ctx.eval("atob('e30')").unwrap());
+        assert_eq!(expect, ctx.eval("atob('e30=')").unwrap());
     }
 }
