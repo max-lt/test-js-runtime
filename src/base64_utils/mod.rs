@@ -2,7 +2,7 @@ use v8::HandleScope;
 
 use crate::base::JsExt;
 
-fn bind_base64(scope: &mut HandleScope) {
+fn bind_base64_utils(scope: &mut HandleScope) {
     let global = scope.get_current_context().global(scope);
 
     let atob_key = v8::String::new_external_onebyte_static(scope, b"atob").unwrap();
@@ -33,7 +33,7 @@ pub struct Base64UtilsExt;
 
 impl JsExt for Base64UtilsExt {
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
-        bind_base64(scope);
+        bind_base64_utils(scope);
     }
 }
 
@@ -45,7 +45,7 @@ mod tests {
     fn prepare_context() -> JsContext {
         let mut ctx = JsContext::create();
 
-        ctx.register_module(&Base64UtilsExt);
+        ctx.register(&Base64UtilsExt);
 
         ctx
     }
@@ -54,7 +54,7 @@ mod tests {
     fn ext_should_set_atob() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("typeof atob === 'function'");
+        let result = ctx.eval("typeof atob === 'function'");
 
         assert_eq!(result, "true");
     }
@@ -63,7 +63,7 @@ mod tests {
     fn ext_should_set_btoa() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("typeof btoa === 'function'");
+        let result = ctx.eval("typeof btoa === 'function'");
 
         assert_eq!(result, "true");
     }
@@ -72,7 +72,7 @@ mod tests {
     fn atob_decodes_base64_string() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("atob('SGVsbG8sIFdvcmxkIQ==')");
+        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkIQ==')");
 
         assert_eq!(result, "Hello, World!");
     }
@@ -82,7 +82,7 @@ mod tests {
     fn atob_handles_invalid_characters() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("atob('SGVsbG8sIFdvcmxkI$Q=')");
+        let result = ctx.eval("atob('SGVsbG8sIFdvcmxkI$Q=')");
 
         assert_eq!(result, "InvalidCharacterError");
     }
@@ -92,7 +92,7 @@ mod tests {
     fn btoa_handles_non_latin1_characters() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("btoa('Hello, 世界!')");
+        let result = ctx.eval("btoa('Hello, 世界!')");
 
         assert_eq!(result, "InvalidCharacterError");
     }
@@ -103,7 +103,7 @@ mod tests {
 
         let expect = "{}";
 
-        assert_eq!(expect, ctx.run_script("atob('e30')"));
-        assert_eq!(expect, ctx.run_script("atob('e30=')"));
+        assert_eq!(expect, ctx.eval("atob('e30')"));
+        assert_eq!(expect, ctx.eval("atob('e30=')"));
     }
 }

@@ -1,4 +1,4 @@
-use v8::{Context, Function, FunctionCallbackArguments, Global, HandleScope, Local};
+use v8::{Function, FunctionCallbackArguments, Global, HandleScope, Local};
 
 use crate::base::JsExt;
 use crate::base::JsState;
@@ -96,7 +96,7 @@ mod tests {
     fn prepare_context() -> JsContext {
         let mut ctx = JsContext::create();
 
-        ctx.register_module(&EventListerExt);
+        ctx.register(&EventListerExt);
 
         ctx
     }
@@ -105,7 +105,7 @@ mod tests {
     fn test_add_event_listener() {
         let mut ctx = prepare_context();
 
-        let result = ctx.run_script("typeof addEventListener");
+        let result = ctx.eval("typeof addEventListener");
 
         assert_eq!(result, "function");
     }

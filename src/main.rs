@@ -17,7 +17,7 @@ fn main() {
     // Run script or eval code
     let result = match args.get(1) {
         Some(arg) if arg == "eval" => match args.get(2) {
-            Some(code) => ctx.run_script(code),
+            Some(code) => ctx.eval(code),
             None => {
                 eprintln!("Usage: {} eval <code>", args[0]);
                 std::process::exit(1);
@@ -36,7 +36,7 @@ fn main() {
                 std::process::exit(1);
             });
 
-            ctx.run_script(&contents)
+            ctx.eval(&contents)
         }
         None => {
             eprintln!("Usage: {} <file> or {} eval <code>", args[0], args[0]);
@@ -49,10 +49,7 @@ fn main() {
 
     // If args contains --fetch, trigger the fetch event
     if args.contains(&String::from("--fetch")) {
-        let start = std::time::Instant::now();
-        ctx.trigger_fetch_event();
-        let end = std::time::Instant::now();
-        println!("Time elapsed: {:?}", end - start);
+        ctx.fetch();
     }
 }
 
