@@ -1,10 +1,12 @@
 use v8::Context;
 use v8::ContextScope;
+use v8::Handle;
 use v8::HandleScope;
 use v8::Isolate;
 use v8::OwnedIsolate;
 use v8::{Global, Local};
 
+use std::any::Any;
 use std::error::Error;
 
 use crate::inspect::inspect_v8_value;
@@ -39,12 +41,42 @@ pub struct JsState {
     pub handler: Option<Global<v8::Function>>,
 }
 
+extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
+    let scope = &mut unsafe { v8::CallbackScope::new(&message) };
+
+    print!("Promise rejected {:?}", message.get_event());
+
+    match message.get_value() {
+        None => print!(" value=None"),
+        Some(value) => print!(" value=Some({})", value.to_rust_string_lossy(scope))
+    }
+
+    println!(" {:?}", message.get_promise());
+}
+
+extern "C" fn message_callback(message: v8::Local<v8::Message>, value: v8::Local<v8::Value>) {
+    let scope = &mut unsafe { v8::CallbackScope::new(message) };
+    let scope = &mut v8::HandleScope::new(scope);
+    let message_str = message.get(scope);
+
+    println!(
+        "Message callback {:?} {:?}",
+        message_str.to_rust_string_lossy(scope),
+        inspect_v8_value(value, scope)
+    );
+}
+
 impl JsContext {
     /// Create a new context
     pub fn create() -> Self {
         initialize_v8();
 
         let mut isolate = Isolate::new(Default::default());
+
+        println!("Microtasks policy: {:?}", isolate.get_microtasks_policy());
+        isolate.set_capture_stack_trace_for_uncaught_exceptions(false, 0);
+        isolate.set_promise_reject_callback(promise_reject_callback);
+        isolate.add_message_listener(message_callback);
 
         let context = {
             // let mut isolate = &runtime.isolate;
@@ -161,10 +193,9 @@ mod tests {
     fn console_should_not_be_defined() {
         let mut ctx = prepare_context();
 
-        assert_eq!(
-            ctx.eval("typeof console").unwrap(),
-            String::from("undefined")
-        );
+        let result = ctx.eval("typeof console").unwrap();
+
+        assert_eq!(result, String::from("undefined"));
     }
 
     /// eval should not panic when js exception is thrown
@@ -193,7 +224,16 @@ mod tests {
     fn eval_should_not_panic_on_dynamic_import() {
         let mut ctx = prepare_context();
 
-        let result = ctx.eval("import('moduleName')");
+        let result = ctx.eval("import('moduleName')").unwrap();
+
+        // TODO: value is a rejected promise
+    }
+
+    #[test]
+    fn eval_should_not_have() {
+        let mut ctx = prepare_context();
+
+        let result = ctx.eval("typeof import");
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::CompileError);

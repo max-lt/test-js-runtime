@@ -15,6 +15,12 @@ pub fn inspect_v8_value(value: Local<v8::Value>, scope: &mut HandleScope) -> Str
       return output;
   }
 
+  if value.is_native_error() {
+      let error = value.to_rust_string_lossy(scope);
+      write!(&mut output, "[Native Error] {:?}", error).expect("Error writing to output string");
+      return output;
+  }
+
   // If value is not an object, return it as a string
   if !value.is_object() && !value.is_array() {
       return value.to_rust_string_lossy(scope);
