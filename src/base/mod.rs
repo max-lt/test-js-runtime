@@ -7,8 +7,8 @@ use v8::{Global, Local};
 
 use std::error::Error;
 
-use crate::utils::inspect::inspect_v8_value;
 use crate::utils::init::initialize_v8;
+use crate::utils::inspect::inspect_v8_value;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
@@ -46,7 +46,7 @@ extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
 
     match message.get_value() {
         None => print!(" value=None"),
-        Some(value) => print!(" value=Some({})", value.to_rust_string_lossy(scope))
+        Some(value) => print!(" value=Some({})", value.to_rust_string_lossy(scope)),
     }
 
     println!(" {:?}", message.get_promise());
@@ -142,6 +142,19 @@ impl JsContext {
         let result = result.to_string(scope).ok_or(EvalError::ConversionError)?;
 
         Ok(result.to_rust_string_lossy(scope))
+    }
+
+    pub fn has_fetch_handler(&mut self) -> bool {
+        let scope = &mut HandleScope::new(&mut self.isolate);
+
+        let context = Local::new(scope, &self.context);
+        let scope = &mut ContextScope::new(scope, context);
+
+        // Check if script registered event listeners
+        match scope.get_slot::<JsState>() {
+            Some(state) => state.handler.is_some(),
+            None => return false,
+        }
     }
 
     /// Call fetch event handler
