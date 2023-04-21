@@ -1,7 +1,5 @@
 mod base;
-mod base64_utils;
-mod console;
-mod event_listener;
+mod exts;
 mod utils;
 
 use crate::base::JsContext;

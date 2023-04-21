@@ -41,7 +41,7 @@ impl JsExt for Base64UtilsExt {
 #[cfg(test)]
 mod tests {
     use crate::base::JsContext;
-    use crate::base64_utils::Base64UtilsExt;
+    use crate::exts::base64_utils::Base64UtilsExt;
 
     fn prepare_context() -> JsContext {
         let mut ctx = JsContext::create();

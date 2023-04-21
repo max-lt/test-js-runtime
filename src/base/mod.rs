@@ -105,9 +105,9 @@ impl JsContext {
     pub fn create_init() -> JsContext {
         let mut context = JsContext::create();
 
-        context.register(&crate::console::ConsoleExt);
-        context.register(&crate::base64_utils::Base64UtilsExt);
-        context.register(&crate::event_listener::EventListerExt);
+        context.register(&crate::exts::console::ConsoleExt);
+        context.register(&crate::exts::base64_utils::Base64UtilsExt);
+        context.register(&crate::exts::event_listener::EventListerExt);
 
         context
     }

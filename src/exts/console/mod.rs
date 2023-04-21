@@ -76,7 +76,7 @@ impl JsExt for ConsoleExt {
 #[cfg(test)]
 mod tests {
     use crate::base::JsContext;
-    use crate::console::ConsoleExt;
+    use crate::exts::console::ConsoleExt;
 
     fn prepare_context() -> JsContext {
         let mut ctx = JsContext::create();
