@@ -108,6 +108,7 @@ impl JsContext {
         context.register(&crate::exts::console::ConsoleExt);
         context.register(&crate::exts::base64_utils::Base64UtilsExt);
         context.register(&crate::exts::event_listener::EventListerExt);
+        context.register(&crate::exts::navigator::NavigatorExt);
 
         context
     }
