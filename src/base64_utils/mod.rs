@@ -1,6 +1,7 @@
 use v8::HandleScope;
 
 use crate::base::JsExt;
+use crate::utils::init::load_script;
 
 fn bind_base64_utils(scope: &mut HandleScope) {
     let global = scope.get_current_context().global(scope);
@@ -10,7 +11,7 @@ fn bind_base64_utils(scope: &mut HandleScope) {
         let context = v8::Context::new(scope);
         let global = context.global(scope);
         let scope = &mut v8::ContextScope::new(scope, context);
-        let script = crate::utils::load_script(scope, "atob.js", include_str!("atob.js"));
+        let script = load_script(scope, "atob.js", include_str!("atob.js"));
         let _result = script.run(scope).unwrap();
 
         global.get(scope, atob_key.into()).unwrap()
@@ -22,7 +23,7 @@ fn bind_base64_utils(scope: &mut HandleScope) {
         let context = v8::Context::new(scope);
         let global = context.global(scope);
         let scope = &mut v8::ContextScope::new(scope, context);
-        let script = crate::utils::load_script(scope, "btoa.js", include_str!("btoa.js"));
+        let script = load_script(scope, "btoa.js", include_str!("btoa.js"));
         let _result = script.run(scope).unwrap();
         global.get(scope, btoa_key.into()).unwrap()
     };

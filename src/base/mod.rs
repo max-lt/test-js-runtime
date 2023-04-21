@@ -1,16 +1,14 @@
 use v8::Context;
 use v8::ContextScope;
-use v8::Handle;
 use v8::HandleScope;
 use v8::Isolate;
 use v8::OwnedIsolate;
 use v8::{Global, Local};
 
-use std::any::Any;
 use std::error::Error;
 
-use crate::inspect::inspect_v8_value;
-use crate::utils::initialize_v8;
+use crate::utils::inspect::inspect_v8_value;
+use crate::utils::init::initialize_v8;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {

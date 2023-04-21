@@ -3,8 +3,9 @@ use v8::HandleScope;
 use v8::Local;
 
 use crate::base::JsExt;
-use crate::inspect::inspect_v8_value;
-use crate::v8_ext::iterator::FunctionCallbackArgumentsExt;
+use crate::utils::init::load_script;
+use crate::utils::inspect::inspect_v8_value;
+use crate::utils::iterator::FunctionCallbackArgumentsExt;
 
 fn logger_callback(
     scope: &mut v8::HandleScope,
@@ -38,7 +39,7 @@ fn logger_callback(
 fn bind_console(scope: &mut HandleScope) {
     let context = scope.get_current_context();
     let global = context.global(scope);
-    let script = crate::utils::load_script(scope, "console.js", include_str!("console.js"));
+    let script = load_script(scope, "console.js", include_str!("console.js"));
     let _result = script.run(scope).unwrap();
 
     // Get Console class
