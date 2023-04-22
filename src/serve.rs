@@ -1,5 +1,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
+use std::sync::mpsc::RecvTimeoutError;
 
 use actix_web::web;
 use actix_web::web::Data;
@@ -17,9 +19,20 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 
     let worker_id = format!("{}", actix_web::rt::System::current().id());
 
-    let response = match event.response_receiver.recv() {
+    let response = match event.response_receiver.recv_timeout(Duration::from_secs(5)) {
         Ok(response) => response,
-        Err(_) => "Error receiving response".to_string(),
+        Err(RecvTimeoutError::Timeout) => {
+            return HttpResponse::InternalServerError()
+                .append_header(("X-Worker-Id", worker_id))
+                .content_type("text/html; charset=utf-8")
+                .body("Timeout")
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError()
+                .append_header(("X-Worker-Id", worker_id))
+                .content_type("text/html; charset=utf-8")
+                .body("Error")
+        },
     };
 
     println!("Response: {:?}", response);
