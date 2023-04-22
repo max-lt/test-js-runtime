@@ -3,6 +3,8 @@ use v8::{Function, FunctionCallbackArguments, Global, HandleScope, Local};
 use crate::base::JsExt;
 use crate::base::JsState;
 
+pub mod request;
+
 fn add_event_listener(
     scope: &mut HandleScope,
     args: FunctionCallbackArguments,

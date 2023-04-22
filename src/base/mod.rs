@@ -3,10 +3,12 @@ use v8::ContextScope;
 use v8::HandleScope;
 use v8::Isolate;
 use v8::OwnedIsolate;
-use v8::{Global, Local};
+use v8::Global;
+use v8::Local;
 
 use std::error::Error;
 
+use crate::exts::event_listener::request::JsFetchEvent;
 use crate::utils::init::initialize_v8;
 use crate::utils::inspect::inspect_v8_value;
 
@@ -26,7 +28,6 @@ impl std::fmt::Display for EvalError {
 impl Error for EvalError {}
 
 pub trait JsExt {
-    //  fn bind(scope: &mut HandleScope, context: Local<Context>) -> ();
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>);
 }
 
@@ -77,7 +78,6 @@ impl JsContext {
         isolate.add_message_listener(message_callback);
 
         let context = {
-            // let mut isolate = &runtime.isolate;
             let scope = &mut HandleScope::new(&mut isolate);
 
             let context = Context::new(scope);
@@ -122,10 +122,6 @@ impl JsContext {
         ext.bind(scope);
     }
 
-    pub fn last_exception(&mut self) -> Option<String> {
-        None // TODO
-    }
-
     /// Evaluate a script
     pub fn eval(&mut self, script: &str) -> Result<String, EvalError> {
         let scope = &mut HandleScope::new(&mut self.isolate);
@@ -158,7 +154,7 @@ impl JsContext {
     }
 
     /// Call fetch event handler
-    pub fn fetch(&mut self) -> Option<String> {
+    pub fn fetch(&mut self, req: actix_web::HttpRequest) -> Option<JsFetchEvent> {
         let scope = &mut HandleScope::new(&mut self.isolate);
 
         let context = Local::new(scope, &self.context);
@@ -185,9 +181,12 @@ impl JsContext {
 
         let handler = Local::new(scope, handler.unwrap());
         let undefined = v8::undefined(scope).into();
-        let result = handler.call(scope, undefined, &[undefined]).unwrap();
-        println!("event result: {:?}", inspect_v8_value(result, scope));
-        Some(result.to_string(scope).unwrap().to_rust_string_lossy(scope))
+        let event = crate::exts::event_listener::request::create_event(scope, req);
+
+        let result = handler.call(scope, undefined, &[event.event.into()]).unwrap();
+        println!("fetch call result: {:?}", inspect_v8_value(result, scope));
+
+        Some(event)
     }
 }
 

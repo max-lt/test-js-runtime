@@ -13,15 +13,21 @@ use crate::base::JsContext;
 async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse {
     let mut ctx = data.ctx.lock().unwrap();
 
-    println!("Request: {:?}", req);
-
-    let result = ctx.fetch().unwrap_or("Error during fetch".to_owned());
+    let event = ctx.fetch(req).unwrap();
 
     let worker_id = format!("{}", actix_web::rt::System::current().id());
 
+    let response = match event.response_receiver.recv() {
+        Ok(response) => response,
+        Err(_) => "Error receiving response".to_string(),
+    };
+
+    println!("Response: {:?}", response);
+
     HttpResponse::Ok()
         .append_header(("X-Worker-Id", worker_id))
-        .body(result)
+        .content_type("text/html; charset=utf-8")
+        .body(response)
 }
 
 struct AppState {
