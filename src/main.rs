@@ -3,10 +3,6 @@ mod exts;
 mod serve;
 mod utils;
 
-use std::sync::{Arc, Mutex};
-
-use base::EvalError;
-
 use crate::base::JsContext;
 
 fn read_script_file(path: &str) -> String {
@@ -25,8 +21,11 @@ fn read_script_file(path: &str) -> String {
     contents
 }
 
-#[tokio::main]
+#[actix_web::main]
+
 async fn main() {
+    std::env::set_var("RUST_LOG", "debug");
+    env_logger::init();
 
     // Get arguments
     let args: Vec<String> = std::env::args().collect();
@@ -49,15 +48,11 @@ async fn main() {
             std::process::exit(1);
         }
 
-        let ctx = Arc::new(Mutex::new(ctx));
-
         if arg == "serve" {
-            let local_set = tokio::task::LocalSet::new();
-            local_set
-                .run_until(async {
-                    crate::serve::serve(ctx).await;
-                })
-                .await;
+            match crate::serve::serve(script).await {
+                Ok(_) => (),
+                Err(e) => eprintln!("Error: {}", e),
+            };
             return;
         }
     }

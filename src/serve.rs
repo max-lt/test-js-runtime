@@ -1,45 +1,45 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpListener;
+use actix_web::web;
+use actix_web::web::Data;
+use actix_web::App;
+use actix_web::HttpRequest;
+use actix_web::HttpResponse;
+use actix_web::HttpServer;
 
 use crate::base::JsContext;
 
-async fn handle_connection(ctx: Arc<Mutex<JsContext>>, mut stream: tokio::net::TcpStream) {
-  let mut buffer = [0; 1024];
+async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse {
+    let mut ctx = data.ctx.lock().unwrap();
 
-  if let Ok(_read) = stream.read(&mut buffer).await {
-      let result;
-      {
-          let mut context = ctx.lock().unwrap();
-          result = context.fetch().unwrap_or("Error during fetch".to_owned());
-      }
+    println!("Request: {:?}", req);
 
-      let response = "HTTP/1.1 200 OK\r\n\r\n".to_owned() + &result + "\n";
+    let result = ctx.fetch().unwrap_or("Error during fetch".to_owned());
 
-      if let Err(e) = stream.write_all(response.as_bytes()).await {
-          eprintln!("Failed to write to socket: {:?}", e);
-      }
-  }
+    let worker_id = format!("{}", actix_web::rt::System::current().id());
+
+    HttpResponse::Ok()
+        .append_header(("X-Worker-Id", worker_id))
+        .body(result)
 }
 
-pub async fn serve(ctx: Arc<Mutex<JsContext>>) {
-    let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
+struct AppState {
+    ctx: Arc<Mutex<JsContext>>,
+}
 
-    println!("Server running on http://127.0.0.1:3000");
+pub async fn serve(script: String) -> std::io::Result<()> {
+    let server = HttpServer::new(move || {
+        let mut ctx = JsContext::create_init();
+        ctx.eval(script.as_str()).unwrap();
+        let ctx = Arc::new(Mutex::new(ctx));
 
-    loop {
-        match listener.accept().await {
-            Ok((stream, _addr)) => {
-              let ctx = ctx.clone();
+        App::new()
+            .app_data(Data::new(AppState { ctx }))
+            .service(web::resource("/{path}*").to(handle_request))
+    })
+    .bind(("127.0.0.1", 3000))?
+    .run();
 
-                tokio::task::spawn_local(async move {
-                    handle_connection(ctx, stream).await;
-                });
-            }
-            Err(e) => eprintln!("Accept error: {:?}", e),
-        }
-    }
+    server.await
 }

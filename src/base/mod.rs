@@ -32,7 +32,7 @@ pub trait JsExt {
 
 pub struct JsContext {
     isolate: OwnedIsolate,
-    context: Global<Context>,
+    context: Global<Context>
 }
 
 pub struct JsState {
