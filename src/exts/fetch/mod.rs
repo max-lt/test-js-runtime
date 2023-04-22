@@ -92,7 +92,7 @@ impl JsExt for EventListerExt {
 
 #[cfg(test)]
 mod tests {
-    use crate::exts::event_listener::EventListerExt;
+    use crate::exts::fetch::EventListerExt;
     use crate::base::JsContext;
 
     fn prepare_context() -> JsContext {

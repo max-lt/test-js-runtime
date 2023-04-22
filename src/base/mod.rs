@@ -8,7 +8,7 @@ use v8::Local;
 
 use std::error::Error;
 
-use crate::exts::event_listener::request::JsFetchEvent;
+use crate::exts::fetch::request::JsFetchEvent;
 use crate::utils::init::initialize_v8;
 use crate::utils::inspect::inspect_v8_value;
 
@@ -107,7 +107,7 @@ impl JsContext {
 
         context.register(&crate::exts::console::ConsoleExt);
         context.register(&crate::exts::base64_utils::Base64UtilsExt);
-        context.register(&crate::exts::event_listener::EventListerExt);
+        context.register(&crate::exts::fetch::EventListerExt);
         context.register(&crate::exts::navigator::NavigatorExt);
 
         context
@@ -181,7 +181,7 @@ impl JsContext {
 
         let handler = Local::new(scope, handler.unwrap());
         let undefined = v8::undefined(scope).into();
-        let event = crate::exts::event_listener::request::create_event(scope, req);
+        let event = crate::exts::fetch::request::create_event(scope, req);
 
         let result = handler.call(scope, undefined, &[event.event.into()]).unwrap();
         println!("fetch call result: {:?}", inspect_v8_value(result, scope));
