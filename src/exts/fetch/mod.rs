@@ -1,10 +1,12 @@
 use v8::{Function, FunctionCallbackArguments, Global, HandleScope, Local};
 
+use crate::utils;
 use crate::base::JsExt;
 use crate::base::JsState;
 
 pub mod event;
 pub mod request;
+pub mod response;
 
 fn add_event_listener(
     scope: &mut HandleScope,
@@ -76,7 +78,7 @@ fn bind_event_listener(scope: &mut HandleScope) {
     let global = scope.get_current_context().global(scope);
 
     {
-        let key = v8::String::new_external_onebyte_static(scope, b"addEventListener").unwrap();
+        let key = utils::v8_str_static!(scope, b"addEventListener");
         let function_template = v8::FunctionTemplate::new(scope, add_event_listener);
         let function = function_template.get_function(scope).unwrap();
         global.set(scope, key.into(), function.into());
@@ -88,6 +90,7 @@ pub struct EventListerExt;
 impl JsExt for EventListerExt {
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
         bind_event_listener(scope);
+        response::bind_response_constructor(scope);
     }
 }
 

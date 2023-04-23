@@ -3,6 +3,7 @@ use v8::HandleScope;
 use v8::Local;
 
 use crate::base::JsExt;
+use crate::utils;
 use crate::utils::init::load_script;
 use crate::utils::inspect::inspect_v8_value;
 use crate::utils::iterator::FunctionCallbackArgumentsExt;
@@ -43,7 +44,7 @@ fn bind_console(scope: &mut HandleScope) {
     let _result = script.run(scope).unwrap();
 
     // Get Console class
-    let console_key = v8::String::new_external_onebyte_static(scope, b"buildConsole").unwrap();
+    let console_key = utils::v8_str_static!(scope, b"buildConsole");
     let console_factory = global.get(scope, console_key.into()).unwrap();
     let console_factory: Local<v8::Function> = console_factory.try_into().unwrap();
 
@@ -53,8 +54,7 @@ fn bind_console(scope: &mut HandleScope) {
 
     // Set the Console instance as a property of the global object
     let undefined = v8::undefined(scope);
-    let console_instance_key: Local<v8::String> =
-        v8::String::new_external_onebyte_static(scope, b"console").unwrap();
+    let console_instance_key: Local<v8::String> = utils::v8_str_static!(scope, b"console");
     let console_instance = console_factory
         .call(scope, undefined.into(), &[console_log_function.into()])
         .unwrap();

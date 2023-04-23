@@ -1,12 +1,13 @@
 use v8::HandleScope;
 
 use crate::base::JsExt;
+use crate::utils;
 use crate::utils::init::load_script;
 
 fn bind_base64_utils(scope: &mut HandleScope) {
     let global = scope.get_current_context().global(scope);
 
-    let atob_key = v8::String::new_external_onebyte_static(scope, b"atob").unwrap();
+    let atob_key = utils::v8_str_static!(scope, b"atob");
     let atob = {
         let context = v8::Context::new(scope);
         let global = context.global(scope);
@@ -18,7 +19,7 @@ fn bind_base64_utils(scope: &mut HandleScope) {
     };
     global.set(scope, atob_key.into(), atob);
 
-    let btoa_key = v8::String::new_external_onebyte_static(scope, b"btoa").unwrap();
+    let btoa_key = utils::v8_str_static!(scope, b"btoa");
     let btoa = {
         let context = v8::Context::new(scope);
         let global = context.global(scope);

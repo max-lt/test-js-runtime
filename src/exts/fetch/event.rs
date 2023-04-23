@@ -1,5 +1,5 @@
 use actix_web::HttpRequest;
-use std::string::String;
+use actix_web::HttpResponse;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -11,33 +11,38 @@ use v8::Local;
 use v8::Object;
 use v8::ReturnValue;
 
-use super::request::create_request;
+use crate::exts::fetch::response::JsResponse;
+use crate::utils::inspect::inspect_v8_value;
+
+use super::request::JsRequest;
 
 pub struct JsFetchEvent<'a> {
     pub event: Local<'a, Object>,
-    pub response_receiver: Receiver<String>,
+    pub receiver: Receiver<Option<HttpResponse>>,
 }
 
 struct FetchEventState {
-    response_sender: Sender<String>,
+    sender: Sender<Option<HttpResponse>>,
 }
 
 /// Callback for event.respondWith
-fn respond_with_callback(
-  scope: &mut HandleScope,
-  args: FunctionCallbackArguments,
+fn respond_with_callback<'a>(
+  scope: &mut HandleScope<'a>,
+  args: FunctionCallbackArguments<'a>,
   _ret: ReturnValue,
 ) {
-  let body = args.get(0).to_rust_string_lossy(scope);
-  println!("body: {}", body);
-  let response_future = body;
+  let body = args.get(0);
+  println!("body: {}", inspect_v8_value(body, scope));
+  let response = JsResponse::from_v8_value(scope, body);
+
+  let response = response.to_http_response(scope);
 
   let state = scope.get_slot_mut::<FetchEventState>();
 
   match state {
       Some(state) => {
           println!("State found, setting response future");
-          state.response_sender.send(response_future).unwrap()
+          state.sender.send(response).unwrap()
       }
       None => {
           println!("No state found!!");
@@ -51,17 +56,17 @@ pub fn create_event<'a>(
 ) -> JsFetchEvent<'a> {
   let event = Object::new(scope);
 
-  let (response_sender, response_receiver) = mpsc::channel();
+  let (sender, receiver) = mpsc::channel();
 
   let js_event = JsFetchEvent {
       event,
-      response_receiver,
+      receiver,
   };
 
-  scope.set_slot(FetchEventState { response_sender });
+  scope.set_slot(FetchEventState { sender });
 
   // Request
-  let request = create_request(scope, req);
+  let request = JsRequest::from_http_request(scope, req);
   let request_key = v8::String::new(scope, "request").unwrap();
   event
       .set(scope, request_key.into(), request.into())

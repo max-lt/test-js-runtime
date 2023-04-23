@@ -182,8 +182,8 @@ impl JsContext {
         let handler = Local::new(scope, handler.unwrap());
         let undefined = v8::undefined(scope).into();
         let event = crate::exts::fetch::event::create_event(scope, req);
-
-        let result = handler.call(scope, undefined, &[event.event.into()]).unwrap();
+        println!("created event: {:?}", inspect_v8_value(event.event.into(), scope));
+        let result = handler.call(scope, undefined, &[event.event.into()])?;
         println!("fetch call result: {:?}", inspect_v8_value(result, scope));
 
         Some(event)
