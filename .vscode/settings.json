@@ -7,6 +7,7 @@
   "cSpell.words": [
     "actix",
     "canonicalize",
+    "microtask",
     "onebyte"
   ],
   "rust-analyzer.linkedProjects": [
