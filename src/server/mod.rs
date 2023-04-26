@@ -1,4 +1,3 @@
-use std::sync::mpsc::RecvTimeoutError;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -10,7 +9,9 @@ use actix_web::HttpRequest;
 use actix_web::HttpResponse;
 use actix_web::HttpServer;
 
-use crate::base::JsContext;
+mod response;
+
+use crate::base::JsRuntime;
 
 async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse {
     let worker_id = format!("{}", actix_web::rt::System::current().id());
@@ -29,18 +30,21 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 
     println!("Worker {} waiting for resp", worker_id);
 
-    let response = match event.receiver.recv_timeout(Duration::from_secs(5)) {
-        Ok(response) => match response {
-            Some(response) => response,
-            None => HttpResponse::InternalServerError()
+    let timeout = tokio::time::timeout(Duration::from_millis(10), event.receiver);
+
+    // Did we timeout or did we receive a response?
+    let response = match timeout.await {
+        Ok(rcv) => rcv,
+        Err(_) => {
+            return HttpResponse::InternalServerError()
                 .append_header(("X-Worker-Id", worker_id))
                 .content_type("text/html; charset=utf-8")
-                .body("Cannot parse response"),
-        },
-        Err(RecvTimeoutError::Timeout) => HttpResponse::InternalServerError()
-            .append_header(("X-Worker-Id", worker_id))
-            .content_type("text/html; charset=utf-8")
-            .body("Timeout"),
+                .body("Timeout");
+        }
+    };
+
+    let response = match response {
+        Ok(response) => response.into(),
         Err(_) => HttpResponse::InternalServerError()
             .append_header(("X-Worker-Id", worker_id))
             .content_type("text/html; charset=utf-8")
@@ -53,12 +57,12 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 }
 
 struct AppState {
-    ctx: Arc<Mutex<JsContext>>,
+    ctx: Arc<Mutex<JsRuntime>>,
 }
 
 pub async fn serve(script: String) -> std::io::Result<()> {
     let server = HttpServer::new(move || {
-        let mut ctx = JsContext::create_init();
+        let mut ctx = JsRuntime::create_init();
         ctx.eval(script.as_str()).unwrap();
         let ctx = Arc::new(Mutex::new(ctx));
 

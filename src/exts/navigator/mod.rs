@@ -52,11 +52,11 @@ impl JsExt for NavigatorExt {
 
 #[cfg(test)]
 mod tests {
-    use crate::base::JsContext;
+    use crate::base::JsRuntime;
     use crate::exts::navigator::NavigatorExt;
 
-    fn prepare_context() -> JsContext {
-        let mut ctx = JsContext::create();
+    fn prepare_context() -> JsRuntime {
+        let mut ctx = JsRuntime::create();
 
         ctx.register(&NavigatorExt);
 

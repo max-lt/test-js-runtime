@@ -23,23 +23,21 @@ pub fn assign_string<'a>(
     object.set(scope, key.into(), value.into());
 }
 
-pub fn assign_u32<'a>(
-    scope: &mut v8::ContextScope<'_, v8::HandleScope<'a>>,
-    object: v8::Local<'a, v8::Object>,
-    key: &str,
-    value: u32,
-) {
-    let key = v8::String::new(scope, key).unwrap();
-    let value = v8::Integer::new(scope, value as i32);
-    object.set(scope, key.into(), value.into());
-}
-
 pub fn throw_type_error<'a>(
     scope: &mut v8::HandleScope<'a>,
     message: &str,
 ) -> v8::Local<'a, v8::Value> {
     let message = v8::String::new(scope, message).unwrap();
     let exception = v8::Exception::type_error(scope, message);
+    scope.throw_exception(exception)
+}
+
+pub fn throw_error<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    message: &str,
+) -> v8::Local<'a, v8::Value> {
+    let message = v8::String::new(scope, message).unwrap();
+    let exception = v8::Exception::error(scope, message);
     scope.throw_exception(exception)
 }
 

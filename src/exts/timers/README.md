@@ -36,3 +36,8 @@ queueMicrotask(() => {
   console.log('Hello, world!');
 });
 ```
+
+## References
+
+https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#microtask-queuing
+https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers

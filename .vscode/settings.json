@@ -8,7 +8,8 @@
     "actix",
     "canonicalize",
     "microtask",
-    "onebyte"
+    "onebyte",
+    "oneshot"
   ],
   "rust-analyzer.linkedProjects": [
     "./Cargo.toml",

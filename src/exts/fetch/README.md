@@ -30,3 +30,6 @@ addEventListener('fetch', (event) => {
 - The `Response` class is only partially implemented.
 - The `FetchEvent` class is not implemented.
 - event.respondWith can only handle a Response instance (not a Promise\<Response\>)
+
+## References
+https://html.spec.whatwg.org/multipage/webappapis.html#events
