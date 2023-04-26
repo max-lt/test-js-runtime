@@ -8,7 +8,7 @@ use v8::OwnedIsolate;
 
 use std::collections::HashMap;
 
-use crate::exts::fetch::fetch_event::trigger_event;
+use crate::exts::event::trigger_event;
 use crate::exts::fetch::fetch_event::JsFetchEvent;
 use crate::utils::init::initialize_v8;
 use crate::utils::inspect::inspect_v8_value;
@@ -105,6 +105,7 @@ impl JsRuntime {
 
       rt.register(&crate::exts::console::ConsoleExt);
       rt.register(&crate::exts::base64_utils::Base64UtilsExt);
+      rt.register(&crate::exts::event::EventListerExt);
       rt.register(&crate::exts::fetch::FetchExt);
       rt.register(&crate::exts::navigator::NavigatorExt);
       rt.register(&crate::exts::timers::TimersExt);

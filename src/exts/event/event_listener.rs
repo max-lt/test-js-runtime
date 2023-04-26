@@ -1,8 +1,7 @@
 use v8::{Function, FunctionCallbackArguments, Global, HandleScope, Local};
 
-use crate::base::JsExt;
 use crate::base::JsState;
-use crate::utils;
+use crate::utils::{self, v8_str_static};
 
 fn add_event_listener(
     scope: &mut HandleScope,
@@ -44,41 +43,32 @@ fn add_event_listener(
 
     println!("listener: {:?}", listener);
 
-    let listener: Result<Local<Function>, _> = listener.try_into();
-    match listener {
-        Ok(listener) => {
-            let listener = Global::new(scope, listener);
-
-            // Get isolate state
-            let state = scope.get_slot_mut::<JsState>().expect("No state found");
-
-            // Ensure that the listener is not already registered
-            // if let on_fetch = state.handlers.get("fetch")  {
-            if let Some(_) = state.handlers.get(&event) {
-                let exception_str = v8::String::new(scope, "Listener already registered").unwrap();
-                let exception = v8::Exception::error(scope, exception_str);
-                scope.throw_exception(exception);
-                return;
-            }
-
-            match state.handlers.get(&event) {
-                Some(_) => {
-                    let exception_str =
-                        v8::String::new(scope, "Listener already registered").unwrap();
-                    let exception = v8::Exception::error(scope, exception_str);
-                    scope.throw_exception(exception);
-                    return;
-                }
-                None => {
-                    state.handlers.insert(event, listener);
-                }
-            }
-        }
+    let listener: Local<Function> = match listener.try_into() {
+        Ok(listener) => listener,
         Err(_) => {
             let exception_str =
-                v8::String::new(scope, "Expected a function as the second argument").unwrap();
+                v8_str_static!(scope, b"Expected a function as the second argument");
             let exception = v8::Exception::error(scope, exception_str);
             scope.throw_exception(exception);
+            return;
+        }
+    };
+
+    let listener = Global::new(scope, listener);
+
+    // Get isolate state
+    let state = scope.get_slot_mut::<JsState>().expect("No state found");
+
+    match state.handlers.get(&event) {
+        Some(_) => {
+            // Ensure that the listener is not already registered
+            let exception_str = v8_str_static!(scope, b"Listener already registered");
+            let exception = v8::Exception::error(scope, exception_str);
+            scope.throw_exception(exception);
+        }
+        None => {
+            // Add the listener to the handlers map
+            state.handlers.insert(event, listener);
         }
     }
 }
@@ -94,18 +84,10 @@ pub(super) fn bind_event_listener(scope: &mut HandleScope) {
     }
 }
 
-pub struct EventListerExt;
-
-impl JsExt for EventListerExt {
-    fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
-        bind_event_listener(scope);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::base::JsRuntime;
-    use crate::exts::fetch::event_listener::EventListerExt;
+    use crate::exts::event::EventListerExt;
 
     fn prepare_context() -> JsRuntime {
         let mut ctx = JsRuntime::create();
