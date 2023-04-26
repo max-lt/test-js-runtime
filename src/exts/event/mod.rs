@@ -1,9 +1,10 @@
 use crate::base::JsExt;
 
 mod event_listener;
-mod event_trigger;
+mod runtime;
 
-pub use crate::exts::event::event_trigger::trigger_event;
+pub use runtime::EventListener;
+pub use runtime::trigger_event;
 
 pub struct EventListerExt;
 

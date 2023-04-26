@@ -4,6 +4,8 @@ mod server;
 mod utils;
 
 use crate::base::JsRuntime;
+use crate::exts::event::EventListener;
+use crate::exts::fetch::Fetch;
 use crate::server::serve;
 
 fn read_script_file(path: &str) -> String {

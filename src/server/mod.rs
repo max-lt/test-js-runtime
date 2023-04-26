@@ -12,6 +12,7 @@ use actix_web::HttpServer;
 mod response;
 
 use crate::base::JsRuntime;
+use crate::exts::fetch::Fetch;
 
 async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse {
     let worker_id = format!("{}", actix_web::rt::System::current().id());

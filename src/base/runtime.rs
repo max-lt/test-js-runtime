@@ -8,8 +8,6 @@ use v8::OwnedIsolate;
 
 use std::collections::HashMap;
 
-use crate::exts::event::trigger_event;
-use crate::exts::fetch::fetch_event::JsFetchEvent;
 use crate::utils::init::initialize_v8;
 use crate::utils::inspect::inspect_v8_value;
 
@@ -32,8 +30,8 @@ impl std::fmt::Display for EvalError {
 impl std::error::Error for EvalError {}
 
 pub struct JsRuntime {
-  isolate: OwnedIsolate,
-  context: Global<Context>,
+  pub(crate) isolate: OwnedIsolate,
+  pub(crate) context: Global<Context>,
 }
 
 extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
@@ -138,47 +136,5 @@ impl JsRuntime {
       let result = result.to_string(scope).ok_or(EvalError::ConversionError)?;
 
       Ok(result.to_rust_string_lossy(scope))
-  }
-
-  pub fn has_fetch_handler(&mut self) -> bool {
-      let scope = &mut HandleScope::new(&mut self.isolate);
-
-      let context = Local::new(scope, &self.context);
-      let scope = &mut ContextScope::new(scope, context);
-
-      // Check if script registered event listeners
-      let state = scope.get_slot::<JsState>().expect("No state found");
-
-      state.handlers.get("fetch").is_some()
-  }
-
-  pub fn dispatch_event(&mut self, event: &str) -> Option<v8::Local<v8::Value>> {
-      let scope = &mut HandleScope::new(&mut self.isolate);
-      let context = Local::new(scope, &self.context);
-      let scope = &mut ContextScope::new(scope, context);
-
-      trigger_event(event, scope, None)
-  }
-
-  /// Call fetch event handler
-  pub fn fetch(&mut self, req: actix_web::HttpRequest) -> Option<JsFetchEvent> {
-      let scope = &mut HandleScope::new(&mut self.isolate);
-      let context = Local::new(scope, &self.context);
-      let scope = &mut ContextScope::new(scope, context);
-
-      let event = crate::exts::fetch::fetch_event::create_fetch_event(scope, req);
-      println!(
-          "created event: {:?}",
-          inspect_v8_value(event.event.into(), scope)
-      );
-
-      let result = match trigger_event("fetch", scope, Some(event.event.into())) {
-          Some(result) => result,
-          None => return None,
-      };
-
-      println!("fetch call result: {:?}", inspect_v8_value(result, scope));
-
-      Some(event)
   }
 }

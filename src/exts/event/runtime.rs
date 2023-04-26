@@ -1,4 +1,10 @@
+use crate::base::JsRuntime;
 use crate::base::JsState;
+
+use v8::Local;
+use v8::Value;
+use v8::HandleScope;
+use v8::ContextScope;
 
 pub fn trigger_event<'a>(
     event: &str,
@@ -26,4 +32,18 @@ pub fn trigger_event<'a>(
     println!("Event result: {:?}", result);
 
     result
+}
+
+pub trait EventListener {
+    fn dispatch_event(&mut self, event: &str) -> Option<Local<Value>>;
+}
+
+impl EventListener for JsRuntime {
+    fn dispatch_event(&mut self, event: &str) -> Option<Local<Value>> {
+        let scope = &mut HandleScope::new(&mut self.isolate);
+        let context = Local::new(scope, &self.context);
+        let scope = &mut ContextScope::new(scope, context);
+
+        trigger_event(event, scope, None)
+    }
 }

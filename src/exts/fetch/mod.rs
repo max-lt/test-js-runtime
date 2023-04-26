@@ -1,8 +1,12 @@
 use crate::base::JsExt;
 
+pub mod fetch_event;
 pub mod request;
 pub mod response;
-pub mod fetch_event;
+
+mod runtime;
+
+pub use runtime::Fetch;
 
 pub struct FetchExt;
 
