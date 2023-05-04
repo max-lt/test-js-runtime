@@ -2,9 +2,16 @@ use v8::FunctionCallbackArguments;
 use v8::HandleScope;
 use v8::ReturnValue;
 
+use crate::base::JsStateRef;
 use crate::utils;
 
+mod timers;
+mod runtime;
+
 use crate::base::JsExt;
+
+pub use timers::Timers;
+pub use runtime::PollTimers;
 
 pub struct TimersExt;
 
@@ -43,38 +50,63 @@ fn bind_timers(scope: &mut HandleScope) {
     global.set(scope, queue_microtask_key.into(), queue_microtask_fn.into());
 }
 
-fn set_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
-    println!("set_timeout");
-
+fn set_timer(
+    scope: &mut HandleScope,
+    args: FunctionCallbackArguments,
+    mut rv: ReturnValue,
+    repeat: bool,
+) -> u32 {
     let callback = args.get(0);
     let callback = v8::Local::<v8::Function>::try_from(callback).unwrap();
 
     let delay = args.get(1);
     let delay = delay.to_uint32(scope).unwrap().value();
 
-    let now = std::time::Instant::now();
-    let when = now + std::time::Duration::from_millis(delay as u64);
+    // Convert callback into a global handle to allow moving it between threads.
+    let callback = v8::Global::new(scope, callback);
 
-    // TODO: Need to call later
-    callback.call(scope, callback.into(), &[]);
+    let state = scope.get_slot::<JsStateRef>().unwrap();
+    let state = state.clone();
+    let mut state = state.borrow_mut();
+
+    let id = state.timers.create(callback, delay as u64, repeat);
+
+    rv.set(v8::Integer::new(scope, id as i32).into());
+
+    id
 }
 
-fn clear_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
-    println!("clear_timeout");
+fn clear_timer(scope: &mut HandleScope, args: FunctionCallbackArguments, _rv: ReturnValue) -> u32 {
+    let id = args.get(0);
+    let id = id.to_uint32(scope).unwrap().value();
 
-    utils::throw_error(scope, "Not implemented");
+    let state = scope.get_slot::<JsStateRef>().unwrap();
+    let state = state.clone();
+    let mut state = state.borrow_mut();
+
+    state.timers.remove(id as u32);
+
+    id
 }
 
-fn set_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
-    println!("set_interval");
-
-    utils::throw_error(scope, "Not implemented");
+fn set_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
+    let id = set_timer(scope, args, rv, false);
+    println!("set_timeout: {}", id);
 }
 
-fn clear_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
-    println!("clear_interval");
+fn clear_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
+    let id = clear_timer(scope, args, rv);
+    println!("clear_timeout: {}", id);
+}
 
-    utils::throw_error(scope, "Not implemented");
+fn set_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
+    let id = set_timer(scope, args, rv, true);
+    println!("set_timeout: {}", id);
+}
+
+fn clear_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
+    let id = clear_timer(scope, args, rv);
+    println!("clear_timeout: {}", id);
 }
 
 fn queue_microtask(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {

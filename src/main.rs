@@ -53,6 +53,7 @@ async fn main() {
                 let script = read_script_file(path);
 
                 ctx.eval(&script).unwrap();
+                ctx.run_event_loop().await;
 
                 if !ctx.has_fetch_handler() {
                     eprintln!("Error: No fetch handler registered");
@@ -72,6 +73,7 @@ async fn main() {
         Some(path) => {
             let script = &read_script_file(path);
             ctx.eval(script).unwrap();
+            ctx.run_event_loop().await;
         }
         None => {
             eprintln!("Usage: {} <file> or {} eval <code>", args[0], args[0]);

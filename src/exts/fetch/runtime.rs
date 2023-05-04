@@ -1,5 +1,5 @@
 use crate::base::JsRuntime;
-use crate::base::JsState;
+use crate::base::JsStateRef;
 
 use v8::ContextScope;
 use v8::HandleScope;
@@ -42,7 +42,8 @@ impl Fetch for JsRuntime {
         let scope = &mut ContextScope::new(scope, context);
 
         // Check if script registered event listeners
-        let state = scope.get_slot::<JsState>().expect("No state found");
+        let state = scope.get_slot::<JsStateRef>().expect("No state found");
+        let state = state.borrow();
 
         state.handlers.get("fetch").is_some()
     }

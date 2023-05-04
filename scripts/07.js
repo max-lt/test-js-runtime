@@ -23,8 +23,11 @@ start()
 
 console.log("End async function");
 
+const timeout = setTimeout(() => {}, 2000);
+
 addEventListener("test", async () => {
   console.log("Test event");
+  clearTimeout(timeout);
 });
 
 addEventListener("01", () => {});

@@ -1,6 +1,6 @@
 use v8::{Function, FunctionCallbackArguments, Global, HandleScope, Local};
 
-use crate::base::JsState;
+use crate::base::JsStateRef;
 use crate::utils::{self, v8_str_static};
 
 fn add_event_listener(
@@ -57,7 +57,9 @@ fn add_event_listener(
     let listener = Global::new(scope, listener);
 
     // Get isolate state
-    let state = scope.get_slot_mut::<JsState>().expect("No state found");
+    let state = scope.get_slot_mut::<JsStateRef>().expect("No state found");
+    let state = state.clone();
+    let mut state = state.borrow_mut();
 
     match state.handlers.get(&event) {
         Some(_) => {

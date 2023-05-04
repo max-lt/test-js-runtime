@@ -1,6 +1,7 @@
 mod runtime;
 
 pub use crate::base::runtime::JsRuntime;
+pub use crate::exts::timers::Timers;
 
 pub trait JsExt {
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>);
@@ -8,7 +9,10 @@ pub trait JsExt {
 
 pub struct JsState {
     pub handlers: std::collections::HashMap<String, v8::Global<v8::Function>>,
+    pub timers: Timers
 }
+
+pub type JsStateRef = std::rc::Rc<std::cell::RefCell<JsState>>;
 
 #[cfg(test)]
 mod tests {
