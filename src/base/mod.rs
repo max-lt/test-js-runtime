@@ -57,7 +57,9 @@ mod tests {
 
         let result = rt.eval("import('moduleName')").unwrap();
 
-        // TODO: value is a rejected promise
+        assert_eq!(result, String::from("[object Promise]"));
+
+        // TODO: promise should have been rejected
     }
 
     #[test]

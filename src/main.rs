@@ -39,7 +39,8 @@ async fn main() {
     match args.get(1) {
         Some(arg) if arg == "eval" => match args.get(2) {
             Some(script) => {
-                ctx.eval(script).unwrap();
+                println!("{}", ctx.eval(script).unwrap());
+                ctx.run_event_loop().await;
             }
             None => {
                 eprintln!("Usage: {} eval <code>", args[0]);

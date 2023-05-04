@@ -76,9 +76,14 @@ fn set_timer(
     id
 }
 
-fn clear_timer(scope: &mut HandleScope, args: FunctionCallbackArguments, _rv: ReturnValue) -> u32 {
+fn clear_timer(scope: &mut HandleScope, args: FunctionCallbackArguments, _rv: ReturnValue) -> Option<u32> {
     let id = args.get(0);
-    let id = id.to_uint32(scope).unwrap().value();
+
+    if !id.is_uint32() {
+        return None;
+    }
+
+    let id = id.to_uint32(scope)?.value();
 
     let state = scope.get_slot::<JsStateRef>().unwrap();
     let state = state.clone();
@@ -86,7 +91,7 @@ fn clear_timer(scope: &mut HandleScope, args: FunctionCallbackArguments, _rv: Re
 
     state.timers.remove(id as u32);
 
-    id
+    Some(id as u32)
 }
 
 fn set_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
@@ -96,7 +101,7 @@ fn set_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: Ret
 
 fn clear_timeout(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
     let id = clear_timer(scope, args, rv);
-    println!("clear_timeout: {}", id);
+    println!("clear_timeout: {:?}", id);
 }
 
 fn set_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
@@ -106,7 +111,7 @@ fn set_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: Re
 
 fn clear_interval(scope: &mut HandleScope, args: FunctionCallbackArguments, rv: ReturnValue) {
     let id = clear_timer(scope, args, rv);
-    println!("clear_timeout: {}", id);
+    println!("clear_timeout: {:?}", id);
 }
 
 fn queue_microtask(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {

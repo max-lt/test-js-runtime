@@ -2,7 +2,6 @@ use tokio::time::Duration;
 use tokio::time::Instant;
 
 pub struct Timer {
-    pub(super) id: u32,
     pub(super) timestamp: Instant,
     pub(super) interval: Option<Duration>, // Set if the timer is a repeating timer
     pub(super) callback: v8::Global<v8::Function>,
@@ -34,10 +33,9 @@ impl Timers {
         };
 
         let timer = Timer {
-            id,
             callback,
             interval,
-            timestamp,
+            timestamp
         };
 
         self.timers.insert(id, timer);
@@ -47,9 +45,5 @@ impl Timers {
 
     pub fn remove(&mut self, id: u32) {
         self.timers.remove(&id);
-    }
-
-    pub fn len(&self) -> usize {
-        self.timers.len()
     }
 }

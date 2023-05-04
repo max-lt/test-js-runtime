@@ -70,7 +70,6 @@ impl JsRuntime {
 
         let mut isolate = Isolate::new(Default::default());
 
-        println!("Microtasks policy: {:?}", isolate.get_microtasks_policy());
         isolate.set_capture_stack_trace_for_uncaught_exceptions(false, 0);
         isolate.set_promise_reject_callback(promise_reject_callback);
         isolate.add_message_listener(message_callback);
