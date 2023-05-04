@@ -1,9 +1,4 @@
-use std::str::FromStr;
 
-use actix_web::http::header::HeaderName;
-use actix_web::http::header::HeaderValue;
-use actix_web::http::StatusCode;
-use actix_web::HttpResponse;
 
 use v8::Function;
 use v8::FunctionCallbackArguments;
@@ -16,69 +11,78 @@ use v8::Value;
 use crate::utils;
 use crate::utils::inspect::inspect_v8_value;
 
-pub(super) struct JsResponse<'a>(Local<'a, Object>);
-
-impl<'a> From<JsResponse<'a>> for Local<'a, Object> {
-    fn from(value: JsResponse<'a>) -> Self {
-        value.0
-    }
+#[derive(Debug)]
+pub struct JsResponse {
+    pub status: u16,
+    pub body: Option<String>,
+    pub headers: Vec<(String, String)>,
 }
 
-impl<'a> From<JsResponse<'a>> for Local<'a, Value> {
-    fn from(value: JsResponse<'a>) -> Self {
-        value.0.into()
-    }
-}
-
-impl<'a> JsResponse<'a> {
-    pub(super) fn from_v8_value(scope: &mut HandleScope<'a>, value: Local<'a, Value>) -> Self {
-        JsResponse(value.to_object(scope).unwrap())
+impl<'a> JsResponse {
+    pub fn new(status: u16) -> Self {
+        JsResponse {
+            status,
+            body: None,
+            headers: Vec::new(),
+        }
     }
 
-    pub(super) fn to_http_response(self, scope: &mut HandleScope<'a>) -> Option<HttpResponse> {
-        println!("to_http_response");
+    pub(super) fn from_v8_value(
+        scope: &mut HandleScope<'a>,
+        response: Local<'a, Value>,
+    ) -> Option<Self> {
+        println!("from_v8_value");
 
-        let response: Local<Value> = self.into();
-
-        println!("to_http_response {}", inspect_v8_value(response, scope));
+        let mut res = JsResponse {
+            status: 200,
+            body: None,
+            headers: Vec::new(),
+        };
 
         let response: Local<Object> = response.to_object(scope).unwrap();
-        let status_key = utils::v8_str_static!(scope, b"status");
-        let status: u16 = match response.get(scope, status_key.into()) {
-            Some(status) if status.is_number() => status.to_uint32(scope)?.value().try_into().ok()?,
-            _ => return None
-        };
 
-        let headers_key = utils::v8_str_static!(scope, b"headers");
-        let headers = match response.get(scope, headers_key.into()) {
-            Some(headers) if headers.is_object() => headers.to_object(scope)?,
-            _ => return None
-        };
+        // Status
+        {
+            let status_key = utils::v8_str_static!(scope, b"status");
+            res.status = match response.get(scope, status_key.into()) {
+                Some(status) if status.is_number() => {
+                    status.to_uint32(scope)?.value().try_into().ok()?
+                }
+                _ => return None,
+            };
+        }
 
-        let body_key = utils::v8_str_static!(scope, b"body");
-        let body = response
-            .get(scope, body_key.into())
-            .unwrap()
-            .to_rust_string_lossy(scope);
+        // Body
+        {
+            let body_key = utils::v8_str_static!(scope, b"body");
+            let body = response
+                .get(scope, body_key.into())
+                .unwrap()
+                .to_rust_string_lossy(scope);
 
-        let status = StatusCode::from_u16(status);
-        let mut res = HttpResponse::build(status.unwrap()).body(body);
+            res.body = Some(body);
+        }
 
-        // res.head_mut().reason = Some("&status_text");
+        // Headers
+        {
+            let headers_key = utils::v8_str_static!(scope, b"headers");
+            let headers = match response.get(scope, headers_key.into()) {
+                Some(headers) if headers.is_object() => headers.to_object(scope)?,
+                _ => return None,
+            };
 
-        let headers_keys = headers
-            .get_own_property_names(scope, v8::GetPropertyNamesArgs::default())
-            .unwrap();
+            let headers_keys = headers
+                .get_own_property_names(scope, v8::GetPropertyNamesArgs::default())
+                .unwrap();
 
-        for key in 0..headers_keys.length() {
-            let val = headers.get_index(scope, key)?;
-            let key = headers_keys.get_index(scope, key)?;
+            for key in 0..headers_keys.length() {
+                let key = headers_keys.get_index(scope, key)?;
+                let val = headers.get(scope, key.into())?;
+                let key = key.to_rust_string_lossy(scope);
+                let val = val.to_rust_string_lossy(scope);
 
-            let key = key.to_rust_string_lossy(scope);
-            let key = HeaderName::from_str(&key).ok()?;
-            let val = val.to_rust_string_lossy(scope);
-            let val = HeaderValue::from_str(&val).ok()?;
-            res.headers_mut().insert(key, val);
+                res.headers.push((key, val));
+            }
         }
 
         Some(res)

@@ -7,7 +7,9 @@
   "cSpell.words": [
     "actix",
     "canonicalize",
-    "onebyte"
+    "microtask",
+    "onebyte",
+    "oneshot"
   ],
   "rust-analyzer.linkedProjects": [
     "./Cargo.toml",

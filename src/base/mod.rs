@@ -1,210 +1,30 @@
-use v8::Context;
-use v8::ContextScope;
-use v8::HandleScope;
-use v8::Isolate;
-use v8::OwnedIsolate;
-use v8::Global;
-use v8::Local;
+mod runtime;
 
-use std::error::Error;
-
-use crate::utils::init::initialize_v8;
-use crate::utils::inspect::inspect_v8_value;
-use crate::exts::fetch::event::JsFetchEvent;
-
-#[derive(Debug, PartialEq)]
-pub enum EvalError {
-    CompileError,
-    RuntimeError,
-    ConversionError,
-}
-
-impl std::fmt::Display for EvalError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl Error for EvalError {}
+pub use crate::base::runtime::JsRuntime;
+pub use crate::exts::timers::Timers;
 
 pub trait JsExt {
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>);
 }
 
-pub struct JsContext {
-    isolate: OwnedIsolate,
-    context: Global<Context>
-}
-
 pub struct JsState {
-    pub handler: Option<Global<v8::Function>>,
+    pub handlers: std::collections::HashMap<String, v8::Global<v8::Function>>,
+    pub timers: Timers
 }
 
-extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
-    let scope = &mut unsafe { v8::CallbackScope::new(&message) };
-
-    print!("Promise rejected {:?}", message.get_event());
-
-    match message.get_value() {
-        None => print!(" value=None"),
-        Some(value) => print!(" value=Some({})", value.to_rust_string_lossy(scope)),
-    }
-
-    println!(" {:?}", message.get_promise());
-}
-
-extern "C" fn message_callback(message: v8::Local<v8::Message>, value: v8::Local<v8::Value>) {
-    let scope = &mut unsafe { v8::CallbackScope::new(message) };
-    let scope = &mut v8::HandleScope::new(scope);
-    let message_str = message.get(scope);
-
-    println!(
-        "Message callback {:?} {:?}",
-        message_str.to_rust_string_lossy(scope),
-        inspect_v8_value(value, scope)
-    );
-}
-
-impl JsContext {
-    /// Create a new context
-    pub fn create() -> Self {
-        initialize_v8();
-
-        let mut isolate = Isolate::new(Default::default());
-
-        println!("Microtasks policy: {:?}", isolate.get_microtasks_policy());
-        isolate.set_capture_stack_trace_for_uncaught_exceptions(false, 0);
-        isolate.set_promise_reject_callback(promise_reject_callback);
-        isolate.add_message_listener(message_callback);
-
-        let context = {
-            let scope = &mut HandleScope::new(&mut isolate);
-
-            let context = Context::new(scope);
-
-            let scope = &mut ContextScope::new(scope, context);
-
-            // Remove default console
-            {
-                let global = context.global(scope);
-                let console_key = v8::String::new(scope, "console").unwrap();
-                global.delete(scope, console_key.into());
-            }
-
-            scope.set_slot(JsState { handler: None });
-
-            let context = Global::new(scope, context);
-
-            context
-        };
-
-        JsContext { isolate, context }
-    }
-
-    /// Create a new context with default extensions
-    pub fn create_init() -> JsContext {
-        let mut context = JsContext::create();
-
-        context.register(&crate::exts::console::ConsoleExt);
-        context.register(&crate::exts::base64_utils::Base64UtilsExt);
-        context.register(&crate::exts::fetch::EventListerExt);
-        context.register(&crate::exts::navigator::NavigatorExt);
-
-        context
-    }
-
-    /// Register a new extension
-    pub fn register<E: JsExt>(&mut self, ext: &E) {
-        let scope = &mut HandleScope::new(&mut self.isolate);
-        let context = Local::new(scope, &self.context);
-        let scope = &mut ContextScope::new(scope, context);
-
-        ext.bind(scope);
-    }
-
-    /// Evaluate a script
-    pub fn eval(&mut self, script: &str) -> Result<String, EvalError> {
-        let scope = &mut HandleScope::new(&mut self.isolate);
-
-        let context = Local::new(scope, &self.context);
-        let scope = &mut ContextScope::new(scope, context);
-
-        let code = v8::String::new(scope, script).ok_or(EvalError::CompileError)?;
-        let script = v8::Script::compile(scope, code, None).ok_or(EvalError::CompileError)?;
-
-        // Run script
-        let result = script.run(scope).ok_or(EvalError::RuntimeError)?;
-
-        let result = result.to_string(scope).ok_or(EvalError::ConversionError)?;
-
-        Ok(result.to_rust_string_lossy(scope))
-    }
-
-    pub fn has_fetch_handler(&mut self) -> bool {
-        let scope = &mut HandleScope::new(&mut self.isolate);
-
-        let context = Local::new(scope, &self.context);
-        let scope = &mut ContextScope::new(scope, context);
-
-        // Check if script registered event listeners
-        match scope.get_slot::<JsState>() {
-            Some(state) => state.handler.is_some(),
-            None => return false,
-        }
-    }
-
-    /// Call fetch event handler
-    pub fn fetch(&mut self, req: actix_web::HttpRequest) -> Option<JsFetchEvent> {
-        let scope = &mut HandleScope::new(&mut self.isolate);
-
-        let context = Local::new(scope, &self.context);
-        let scope = &mut ContextScope::new(scope, context);
-
-        // Check if script registered event listeners
-        let handler = {
-            let state = scope
-                .get_slot::<JsState>()
-                .expect("Missing runtime data in V8 context");
-
-            match &state.handler {
-                Some(handler) => Some(handler.clone()),
-                None => {
-                    println!("No handler registered");
-                    None
-                }
-            }
-        };
-
-        if handler.is_none() {
-            return None;
-        }
-
-        let handler = Local::new(scope, handler.unwrap());
-        let undefined = v8::undefined(scope).into();
-        let event = crate::exts::fetch::event::create_event(scope, req);
-        println!("created event: {:?}", inspect_v8_value(event.event.into(), scope));
-        let result = handler.call(scope, undefined, &[event.event.into()])?;
-        println!("fetch call result: {:?}", inspect_v8_value(result, scope));
-
-        Some(event)
-    }
-}
+pub type JsStateRef = std::rc::Rc<std::cell::RefCell<JsState>>;
 
 #[cfg(test)]
 mod tests {
-    use crate::base::EvalError;
-    use crate::base::JsContext;
+    use crate::base::runtime::EvalError;
+    use crate::base::runtime::JsRuntime;
 
-    fn prepare_context() -> JsContext {
-        JsContext::create()
-    }
-
-    /// The default context should have default console removed
+    /// The default runtime should have default console removed
     #[test]
     fn console_should_not_be_defined() {
-        let mut ctx = prepare_context();
+        let mut rt = JsRuntime::create();
 
-        let result = ctx.eval("typeof console").unwrap();
+        let result = rt.eval("typeof console").unwrap();
 
         assert_eq!(result, String::from("undefined"));
     }
@@ -212,9 +32,9 @@ mod tests {
     /// eval should not panic when js exception is thrown
     #[test]
     fn eval_should_not_panic_on_runtime_error() {
-        let mut ctx = prepare_context();
+        let mut rt = JsRuntime::create();
 
-        let result = ctx.eval("throw new Error('test')");
+        let result = rt.eval("throw new Error('test')");
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::RuntimeError);
@@ -223,9 +43,9 @@ mod tests {
     /// eval should not panic when js exception is thrown
     #[test]
     fn eval_should_not_panic_on_compile_error() {
-        let mut ctx = prepare_context();
+        let mut rt = JsRuntime::create();
 
-        let result = ctx.eval("}");
+        let result = rt.eval("}");
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::CompileError);
@@ -233,18 +53,18 @@ mod tests {
 
     #[test]
     fn eval_should_not_panic_on_dynamic_import() {
-        let mut ctx = prepare_context();
+        let mut rt = JsRuntime::create();
 
-        let result = ctx.eval("import('moduleName')").unwrap();
+        let result = rt.eval("import('moduleName')").unwrap();
 
         // TODO: value is a rejected promise
     }
 
     #[test]
     fn eval_should_not_have() {
-        let mut ctx = prepare_context();
+        let mut rt = JsRuntime::create();
 
-        let result = ctx.eval("typeof import");
+        let result = rt.eval("typeof import");
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::CompileError);
