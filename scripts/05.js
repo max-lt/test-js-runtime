@@ -5,17 +5,6 @@ let a = 0;
 addEventListener("fetch", (event) => {
   event.respondWith(
     handleRequest(event.request)
-      // .then((response) => {
-      //   console.log("Response:", response);
-
-      //   return response;
-      // })
-      // .catch((err) => {
-      //   console.error("Error:", err);
-      //   return new Response(err.stack, {
-      //     status: 500,
-      //   });
-      // })
   );
 });
 
