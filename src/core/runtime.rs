@@ -4,19 +4,22 @@ use v8::Global;
 use v8::HandleScope;
 use v8::Isolate;
 use v8::Local;
-use v8::OwnedIsolate;
+use v8::Value;
 
-use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::task::Poll;
 
 use crate::utils::init::initialize_v8;
 use crate::utils::inspect::inspect_v8_value;
-use crate::exts::timers::Timers;
-use crate::exts::timers::PollTimers;
 
-use super::JsExt;
+use super::base::JsRuntime;
+use super::event::JsEventTrait;
+use super::timers::Timers;
+use super::JsRuntimeMod;
 use super::JsState;
+use super::JsStateRef;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
@@ -32,11 +35,6 @@ impl std::fmt::Display for EvalError {
 }
 
 impl std::error::Error for EvalError {}
-
-pub struct JsRuntime {
-    pub(crate) isolate: OwnedIsolate,
-    pub(crate) context: Global<Context>,
-}
 
 extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
     let scope = &mut unsafe { v8::CallbackScope::new(&message) };
@@ -98,25 +96,17 @@ impl JsRuntime {
             context
         };
 
-        JsRuntime { isolate, context }
-    }
+        let mut rt = JsRuntime { isolate, context };
 
-    /// Create a new context with default extensions
-    pub fn create_init() -> JsRuntime {
-        let mut rt = JsRuntime::create();
-
-        rt.register(&crate::exts::console::ConsoleExt);
-        rt.register(&crate::exts::base64_utils::Base64UtilsExt);
-        rt.register(&crate::exts::event::EventListerExt);
-        rt.register(&crate::exts::fetch::FetchExt);
-        rt.register(&crate::exts::navigator::NavigatorExt);
-        rt.register(&crate::exts::timers::TimersExt);
+        rt.register(&super::console::ConsoleExt);
+        rt.register(&super::event_listener::EventListerExt);
+        rt.register(&super::timers::TimersExt);
 
         rt
     }
 
     /// Register a new extension
-    pub fn register<E: JsExt>(&mut self, ext: &E) {
+    fn register<Mod: JsRuntimeMod>(&mut self, ext: &Mod) {
         let scope = &mut HandleScope::new(&mut self.isolate);
         let context = Local::new(scope, &self.context);
         let scope = &mut ContextScope::new(scope, context);
@@ -148,5 +138,43 @@ impl JsRuntime {
         let scope = &mut ContextScope::new(scope, context);
 
         tokio::macros::support::poll_fn(|cx| Self::poll_timers(cx, scope)).await
+    }
+
+    fn poll_timers(cx: &mut std::task::Context, scope: &mut ContextScope<HandleScope>) -> Poll<()> {
+        super::timers::poll_timers(cx, scope)
+    }
+
+    pub fn dispatch_event<E: JsEventTrait>(&mut self, event: E) -> Option<Local<Value>> {
+        let scope = &mut HandleScope::new(&mut self.isolate);
+        let context = Local::new(scope, &self.context);
+        let scope = &mut ContextScope::new(scope, context);
+
+        // Get handler - State must be dropped before the handler is called
+        let handler = {
+            let state = scope.get_slot::<JsStateRef>().expect("No state found");
+            let state = state.borrow();
+            match state.handlers.get(&event.event_type()) {
+                Some(handler) => handler.clone(),
+                None => {
+                    println!("No handler registered");
+                    return None;
+                }
+            }
+        };
+
+        // Prepare handler call
+        let handler = v8::Local::new(scope, handler);
+        let undefined = v8::undefined(scope).into();
+
+        // Call handler
+        // let result = match event_data {
+        //     Some(event_data) => handler.call(scope, undefined, &[event_data]),
+        //     None => handler.call(scope, undefined, &[]),
+        // };
+        let result = handler.call(scope, undefined, &[]);
+
+        println!("Event result: {:?}", result);
+
+        result
     }
 }

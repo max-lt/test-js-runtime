@@ -1,1 +1,1 @@
-console.log({ name: "hello", a: typeof a });
+setTimeout(() => console.log('setTimeout called'), 100);

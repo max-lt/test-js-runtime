@@ -1,33 +1,32 @@
 mod runtime;
+mod base;
 
-pub use crate::base::runtime::JsRuntime;
-pub use crate::exts::timers::Timers;
+mod event;
+mod console;
+mod timers;
+mod event_listener;
 
-pub trait JsExt {
-    fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>);
-}
+pub use crate::core::event::JsEvent;
 
-pub struct JsState {
-    pub handlers: std::collections::HashMap<String, v8::Global<v8::Function>>,
-    pub timers: Timers
-}
-
-pub type JsStateRef = std::rc::Rc<std::cell::RefCell<JsState>>;
+pub use crate::core::base::JsRuntime;
+pub use crate::core::base::JsRuntimeMod;
+pub use crate::core::base::JsState;
+pub use crate::core::base::JsStateRef;
 
 #[cfg(test)]
 mod tests {
-    use crate::base::runtime::EvalError;
-    use crate::base::runtime::JsRuntime;
+    use crate::core::runtime::EvalError;
+    use crate::core::base::JsRuntime;
 
     /// The default runtime should have default console removed
-    #[test]
-    fn console_should_not_be_defined() {
-        let mut rt = JsRuntime::create();
+    // #[test]
+    // fn console_should_not_be_defined() {
+    //     let mut rt = JsRuntime::create();
 
-        let result = rt.eval("typeof console").unwrap();
+    //     let result = rt.eval("typeof console").unwrap();
 
-        assert_eq!(result, String::from("undefined"));
-    }
+    //     assert_eq!(result, String::from("undefined"));
+    // }
 
     /// eval should not panic when js exception is thrown
     #[test]
@@ -70,5 +69,14 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::CompileError);
+    }
+
+    #[test]
+    fn add_event_listener_should_be_defined() {
+        let mut rt = JsRuntime::create();
+
+        let result = rt.eval("typeof addEventListener").unwrap();
+
+        assert_eq!(result, "function");
     }
 }

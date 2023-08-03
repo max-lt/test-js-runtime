@@ -1,12 +1,7 @@
-mod base;
-mod exts;
-mod server;
+mod core;
 mod utils;
 
-use crate::base::JsRuntime;
-use crate::exts::event::EventListener;
-use crate::exts::fetch::Fetch;
-use crate::server::serve;
+use crate::core::JsRuntime;
 
 fn read_script_file(path: &str) -> String {
     let file = std::path::Path::new(path)
@@ -33,48 +28,24 @@ async fn main() {
     // Get arguments
     let args: Vec<String> = std::env::args().collect();
 
-    let mut ctx: JsRuntime = JsRuntime::create_init();
+    let mut rt: JsRuntime = JsRuntime::create();
 
     // Run script or eval code
     match args.get(1) {
         Some(arg) if arg == "eval" => match args.get(2) {
             Some(script) => {
-                println!("{}", ctx.eval(script).unwrap());
-                ctx.run_event_loop().await;
+                println!("{}", rt.eval(script).unwrap());
+                rt.run_event_loop().await;
             }
             None => {
                 eprintln!("Usage: {} eval <code>", args[0]);
                 std::process::exit(1);
             }
         },
-        Some(arg) if arg == "serve" => match args.get(2) {
-            Some(path) => {
-                let mut ctx: JsRuntime = JsRuntime::create_init();
-
-                let script = read_script_file(path);
-
-                ctx.eval(&script).unwrap();
-                ctx.run_event_loop().await;
-
-                if !ctx.has_fetch_handler() {
-                    eprintln!("Error: No fetch handler registered");
-                    std::process::exit(1);
-                }
-
-                match serve(script).await {
-                    Ok(_) => (),
-                    Err(e) => eprintln!("Error: {}", e),
-                };
-            }
-            None => {
-                eprintln!("Usage: {} serve <code>", args[0]);
-                std::process::exit(1);
-            }
-        },
         Some(path) => {
             let script = &read_script_file(path);
-            ctx.eval(script).unwrap();
-            ctx.run_event_loop().await;
+            rt.eval(script).unwrap();
+            rt.run_event_loop().await;
         }
         None => {
             eprintln!("Usage: {} <file> or {} eval <code>", args[0], args[0]);
@@ -82,9 +53,26 @@ async fn main() {
         }
     };
 
-    if let Some(arg) = args.get(2) {
-        if arg == "--test" {
-            ctx.dispatch_event("test").unwrap();
+    for arg in args.iter().skip(2) {
+        // event=<eventName>
+        if arg.starts_with("--event=") {
+            let event_type: String = arg.trim_start_matches("--event=").to_string();
+
+            println!("Triggering event: {}", event_type);
+
+            let event_type: String = arg.trim_start_matches("--event=").to_string();
+
+            let event = crate::core::JsEvent::new(event_type);
+
+            // rt.dispatch_event(event).unwrap();
+            match rt.dispatch_event(event) {
+                Some(result) => {
+                    println!("Result: {:?}", result);
+                }
+                None => {
+                    println!("No result");
+                }
+            }
         }
     }
 }

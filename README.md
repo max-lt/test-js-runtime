@@ -26,6 +26,7 @@ OPTIONS:
 # Development
 cargo run path/to/file.js
 cargo run eval "console.log('Hello World!')"
+cargo run serve path/to/file.js # Will serve the worker script on localhost:3000
 # Build
 ./target/release/rs-engine path/to/file.js --fetch
 ./target/release/rs-engine eval "console.log('Hello World!')"

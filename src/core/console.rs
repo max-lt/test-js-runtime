@@ -2,7 +2,7 @@ use std::fmt::Write;
 use v8::HandleScope;
 use v8::Local;
 
-use crate::base::JsExt;
+use crate::core::JsRuntimeMod;
 use crate::utils;
 use crate::utils::init::load_script;
 use crate::utils::inspect::inspect_v8_value;
@@ -67,21 +67,19 @@ fn bind_console(scope: &mut HandleScope) {
 
 pub struct ConsoleExt;
 
-impl JsExt for ConsoleExt {
+impl JsRuntimeMod for ConsoleExt {
     fn bind<'s>(&self, scope: &mut v8::HandleScope<'s>) {
         bind_console(scope);
     }
 }
 
+
 #[cfg(test)]
 mod tests {
-    use crate::base::JsRuntime;
-    use crate::exts::console::ConsoleExt;
+    use crate::core::JsRuntime;
 
     fn prepare_runtime() -> JsRuntime {
-        let mut rt = JsRuntime::create();
-
-        rt.register(&ConsoleExt);
+        let rt = JsRuntime::create();
 
         rt
     }
