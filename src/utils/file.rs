@@ -1,4 +1,4 @@
-fn read_script_file(ctx: &mut JsContext, path: &str) -> Result<String, EvalError> {
+pub fn read_script_file(path: &str) -> String {
     let file = std::path::Path::new(path)
         .canonicalize()
         .unwrap_or_else(|_| {
@@ -11,5 +11,5 @@ fn read_script_file(ctx: &mut JsContext, path: &str) -> Result<String, EvalError
         std::process::exit(1);
     });
 
-    ctx.eval(&contents)
+    contents
 }
