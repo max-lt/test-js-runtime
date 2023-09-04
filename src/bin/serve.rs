@@ -2,8 +2,6 @@ use lib::core::JsRuntime;
 use lib::fetch::RuntimeFetchMessage;
 use lib::utils::file::read_script_file;
 
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use actix_web::web;
@@ -14,19 +12,24 @@ use actix_web::HttpResponse;
 use actix_web::HttpServer;
 
 struct AppState {
-    rt: Arc<Mutex<JsRuntime>>,
+    script: String,
 }
 
 async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse {
     let worker_id = format!("{}", actix_web::rt::System::current().id());
-    let mut ctx = data.rt.lock().unwrap();
+
+    let script = data.script.clone();
+
+    let mut rt = JsRuntime::create_init();
+
+    rt.eval(script.as_str()).unwrap();
 
     println!("Worker {} will emit fetch event", worker_id);
 
     let mut fetch = RuntimeFetchMessage::new(req.into());
 
-    match ctx.send_message(&mut fetch) {
-        Some(_) => {},
+    match rt.send_message(&mut fetch) {
+        Some(_) => {}
         None => {
             return HttpResponse::InternalServerError()
                 .content_type("text/html; charset=utf-8")
@@ -38,7 +41,7 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 
     // Poll timers
     let time = std::time::SystemTime::now();
-    ctx.run_event_loop().await;
+    rt.run_event_loop().await;
     println!("Time EvL: {:?}", time.elapsed().unwrap());
 
     let timeout = tokio::time::timeout(Duration::from_millis(1000), fetch.get_response());
@@ -71,12 +74,10 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 
 async fn serve(script: String) -> std::io::Result<()> {
     let server = HttpServer::new(move || {
-        let mut rt = JsRuntime::create_init();
-        rt.eval(script.as_str()).unwrap();
-        let rt = Arc::new(Mutex::new(rt));
+        let script = script.clone();
 
         App::new()
-            .app_data(Data::new(AppState { rt }))
+            .app_data(Data::new(AppState { script }))
             .service(web::resource("/{path}*").to(handle_request))
     })
     .workers(1) // Set number of workers to 1 to reduce logging noise
@@ -100,12 +101,7 @@ async fn main() {
     // Run script or eval code
     match args.get(1) {
         Some(path) => {
-            let mut rt = JsRuntime::create_init();
-
             let script = read_script_file(path);
-
-            rt.eval(&script).unwrap();
-            rt.run_event_loop().await;
 
             match serve(script).await {
                 Ok(_) => (),

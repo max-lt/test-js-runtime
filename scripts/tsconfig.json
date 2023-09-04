@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["es2020", "webworker"]
+  },
+  "files": ["test.ts"]
+}

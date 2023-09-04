@@ -1,6 +1,6 @@
 [package]
 name = "openworkers-runtime"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 
 [lib]
@@ -10,7 +10,16 @@ path = "src/lib.rs"
 [dependencies]
 v8 = "0.75.1"
 chrono = "0.4.28"
-actix-web = "4"
+actix-web = "4.4.0"
 env_logger = "0.10.0"
 futures = "0.3.28"
 tokio = { version = "1", features = ["full"] }
+swc = "0.265.11"
+swc_common = "0.32.1"
+swc_ecma_ast = "0.109.1"
+swc_ecma_parser = "0.139.1"
+swc_ecma_transforms = "0.223.7"
+swc_ecma_visit = "0.95.1"
+
+# https://github.com/rust-lang/rust/issues/113152
+proc-macro2 = "1.0.66"

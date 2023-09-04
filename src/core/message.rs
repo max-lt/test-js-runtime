@@ -4,6 +4,7 @@ use v8::Value;
 
 use crate::utils;
 
+// Message sent from the runtime to the worker
 pub trait RuntimeMessage {
     fn kind(&self) -> String;
 
@@ -13,7 +14,6 @@ pub trait RuntimeMessage {
     fn to_value<'s>(&self, scope: &mut HandleScope<'s>) -> Local<'s, Value>;
 }
 
-// Message sent from the runtime to the worker
 #[derive(Debug)]
 pub struct RuntimeBasicMessage {
     kind: String,

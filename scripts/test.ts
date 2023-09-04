@@ -18,22 +18,21 @@ console.log("promise", new Promise(() => {}));
 
 console.log("eval", eval("1 + 1"));
 
-let count = 0;
 
-addEventListener("fetch", (event) => {
-  console.log("Handle fetch evt", event);
-
-  event.respondWith(handleRequest(event.request));
+addEventListener("fetch", (event: FetchEvent) => {
+  event.respondWith(
+    handleRequest(event.request).catch(
+      (err: Error) => new Response(err.stack ?? err.message, { status: 500 })
+    )
+  );
 });
 
-async function handleRequest(request) {
-  console.log("Handle request", request);
+async function handleRequest(request: Request): Promise<Response> {
+  const url = request.url;
 
-  if (request.url.endsWith("/favicon.ico")) {
+  if (url.endsWith("favicon.ico")) {
     return new Response(null, { status: 404 });
   }
 
-  return new Response(`Hello world, ive been called ${count++} times`, {
-    headers: { "content-type": "text/plain" },
-  });
+  return new Response("Hello World!", { status: 200 });
 }

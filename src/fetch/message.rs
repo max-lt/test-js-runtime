@@ -13,8 +13,8 @@ use crate::utils;
 
 pub struct RuntimeFetchMessage {
     request: JsRequest,
-    tx: Option<Sender<JsResponse>>,
-    rx: Option<Receiver<JsResponse>>,
+    tx: Option<Sender<JsResponse>>, // Channel to send response (from worker to runtime)
+    rx: Option<Receiver<JsResponse>>, // Channel to receive response
 }
 
 impl RuntimeFetchMessage {
