@@ -26,7 +26,7 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
     let mut fetch = RuntimeFetchMessage::new(req.into());
 
     match ctx.send_message(&mut fetch) {
-        Some(_) => {},
+        Some(_) => {}
         None => {
             return HttpResponse::InternalServerError()
                 .content_type("text/html; charset=utf-8")
@@ -70,9 +70,18 @@ async fn handle_request(data: Data<AppState>, req: HttpRequest) -> HttpResponse 
 }
 
 async fn serve(script: String) -> std::io::Result<()> {
+    let snapshot = match std::fs::read("snapshot.bin") {
+        Ok(snapshot) => Some(snapshot),
+        Err(_) => None,
+    };
+
     let server = HttpServer::new(move || {
-        let mut rt = JsRuntime::create_init();
+        let snapshot = snapshot.clone();
+
+        let mut rt = JsRuntime::create_init(snapshot);
+
         rt.eval(script.as_str()).unwrap();
+
         let rt = Arc::new(Mutex::new(rt));
 
         App::new()
@@ -100,12 +109,7 @@ async fn main() {
     // Run script or eval code
     match args.get(1) {
         Some(path) => {
-            let mut rt = JsRuntime::create_init();
-
             let script = read_script_file(path);
-
-            rt.eval(&script).unwrap();
-            rt.run_event_loop().await;
 
             match serve(script).await {
                 Ok(_) => (),

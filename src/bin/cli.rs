@@ -7,7 +7,12 @@ use lib::fetch::RuntimeFetchMessage;
 use lib::utils::file::read_script_file;
 
 async fn run(args: Vec<String>) {
-    let mut rt: JsRuntime = JsRuntime::create_init();
+    let snapshot = match std::fs::read("snapshot.bin") {
+        Ok(snapshot) => Some(snapshot),
+        Err(_) => None,
+    };
+
+    let mut rt: JsRuntime = JsRuntime::create_init(snapshot);
 
     let start = std::time::SystemTime::now();
 

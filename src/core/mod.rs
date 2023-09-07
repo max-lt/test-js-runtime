@@ -19,7 +19,7 @@ mod tests {
     /// eval should not panic when js exception is thrown
     #[test]
     fn rt_should_not_panic_on_runtime_error() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("throw new Error('test')");
 
@@ -30,7 +30,7 @@ mod tests {
     /// eval should not panic when js exception is thrown
     #[test]
     fn rt_should_not_panic_on_compile_error() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("}");
 
@@ -40,7 +40,7 @@ mod tests {
 
     #[test]
     fn rt_should_not_panic_on_dynamic_import() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("import('moduleName')").unwrap();
 
@@ -51,7 +51,7 @@ mod tests {
 
     #[test]
     fn rt_should_not_have_import() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("typeof import");
 
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn rt_should_have_eval() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("typeof dispatchEvent").unwrap();
 
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn rt_should_have_dispatch_event() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("typeof dispatchEvent").unwrap();
 
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn rt_should_have_post_message() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("typeof postMessage").unwrap();
 
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn rt_should_have_this() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("this === globalThis").unwrap();
 
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn rt_should_have_self() {
-        let mut rt = JsRuntime::create_init();
+        let mut rt = JsRuntime::create_init(None);
 
         let result = rt.eval("self === globalThis").unwrap();
 

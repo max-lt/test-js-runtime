@@ -5,8 +5,8 @@ use v8::HandleScope;
 use v8::Isolate;
 use v8::Local;
 
-use std::fmt::Write;
 use std::cell::RefCell;
+use std::fmt::Write;
 use std::rc::Rc;
 
 use crate::utils;
@@ -149,13 +149,61 @@ fn register_message_handler(
     };
 }
 
+fn eval(scope: &mut HandleScope, code: &str) {
+    let source = v8::String::new(scope, code).unwrap();
+    let script = v8::Script::compile(scope, source, None).unwrap();
+    script.run(scope);
+}
+
 impl JsRuntime {
-    /// Create a new context with default extensions
-    pub fn create_init() -> Self {
+    pub fn create_snapshot() {
         initialize_v8();
 
+        let mut isolate = Isolate::snapshot_creator(None);
+
+        {
+            let scope = &mut HandleScope::new(&mut isolate);
+
+            let context = Context::new(scope);
+
+            let scope = &mut ContextScope::new(scope, context);
+
+            eval(scope, include_str!("../runtime/init.js"));
+            eval(scope, include_str!("../runtime/atob.js"));
+            eval(scope, include_str!("../runtime/btoa.js"));
+            eval(scope, include_str!("../runtime/console.js"));
+            eval(scope, include_str!("../runtime/navigator.js"));
+            eval(scope, include_str!("../runtime/events.js"));
+            eval(scope, include_str!("../runtime/fetch/headers.js"));
+            eval(scope, include_str!("../runtime/fetch/response.js"));
+            eval(scope, include_str!("../runtime/fetch/request.js"));
+            eval(scope, include_str!("../runtime/fetch/fetch-event.js"));
+
+            scope.set_default_context(context);
+        }
+
+        // Snapshot
+        let snapshot = isolate.create_blob(v8::FunctionCodeHandling::Keep).unwrap();
+
+        std::fs::write("snapshot.bin", snapshot).unwrap();
+    }
+
+    /// Create a new context with default extensions
+    pub fn create_init(snapshot: Option<Vec<u8>>) -> Self {
+        initialize_v8();
+
+        let time = std::time::Instant::now();
+
+        let from_snapshot = snapshot.is_some();
+
         let mut rt = {
-            let mut isolate = Isolate::new(Default::default());
+            let mut isolate = match snapshot {
+                Some(snapshot) => {
+                    let params = v8::Isolate::create_params().snapshot_blob(snapshot);
+                    Isolate::new(params)
+                }
+                None => Isolate::new(Default::default()),
+            };
 
             isolate.set_capture_stack_trace_for_uncaught_exceptions(false, 0);
             isolate.set_promise_reject_callback(promise_reject_callback);
@@ -181,22 +229,25 @@ impl JsRuntime {
             JsRuntime { isolate, context }
         };
 
-        rt.eval(include_str!("../runtime/init.js")).unwrap();
-        rt.eval(include_str!("../runtime/atob.js")).unwrap();
-        rt.eval(include_str!("../runtime/btoa.js")).unwrap();
-        rt.eval(include_str!("../runtime/console.js")).unwrap();
-        rt.eval(include_str!("../runtime/navigator.js")).unwrap();
-        rt.eval(include_str!("../runtime/events.js")).unwrap();
-        rt.eval(include_str!("../runtime/fetch/headers.js"))
-            .unwrap();
-        rt.eval(include_str!("../runtime/fetch/response.js"))
-            .unwrap();
-        rt.eval(include_str!("../runtime/fetch/request.js"))
-            .unwrap();
-        rt.eval(include_str!("../runtime/fetch/fetch-event.js"))
-            .unwrap();
+        if !from_snapshot {
+            rt.eval(include_str!("../runtime/init.js")).unwrap();
+            rt.eval(include_str!("../runtime/atob.js")).unwrap();
+            rt.eval(include_str!("../runtime/btoa.js")).unwrap();
+            rt.eval(include_str!("../runtime/console.js")).unwrap();
+            rt.eval(include_str!("../runtime/navigator.js")).unwrap();
+            rt.eval(include_str!("../runtime/events.js")).unwrap();
+            rt.eval(include_str!("../runtime/fetch/headers.js"))
+                .unwrap();
+            rt.eval(include_str!("../runtime/fetch/response.js"))
+                .unwrap();
+            rt.eval(include_str!("../runtime/fetch/request.js"))
+                .unwrap();
+            rt.eval(include_str!("../runtime/fetch/fetch-event.js"))
+                .unwrap();
+        }
 
-        // TODO: Snapshot here
+        let time = time.elapsed().as_micros();
+        println!("Runtime init took {}μs (snapshot: {})", time, from_snapshot);
 
         // Set postMessage handler
         {
