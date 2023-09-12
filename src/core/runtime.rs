@@ -15,6 +15,8 @@ use crate::utils::inspect::inspect_v8_value;
 
 use super::JsState;
 use super::JsStateRef;
+use super::RuntimeBasicMessage;
+use super::RuntimeMessage;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
@@ -99,6 +101,25 @@ fn message_from_worker(
 
             println!("[{:?}] console.{}:{}", date, level, output);
         }
+        "timer" => {
+            let delay = utils::get(scope, message, "delay");
+
+            let time = delay.integer_value(scope).unwrap_or(0);
+
+            let state = scope.get_slot::<JsStateRef>().unwrap();
+            let mut state = state.borrow_mut();
+
+            if delay.is_null_or_undefined() {
+                println!("Clear timer");
+                state.timer = None;
+            } else {
+                println!("Set timer: {:?}", time);
+
+                let delay = std::time::Duration::from_millis(time as u64);
+
+                state.timer = Some(std::time::Instant::now() + delay);
+            }
+        }
         _ => {
             println!("Unknown message kind: {}", kind);
         }
@@ -174,6 +195,7 @@ impl JsRuntime {
             eval(scope, include_str!("../runtime/console.js"));
             eval(scope, include_str!("../runtime/navigator.js"));
             eval(scope, include_str!("../runtime/events.js"));
+            eval(scope, include_str!("../runtime/timers.js"));
             eval(scope, include_str!("../runtime/fetch/headers.js"));
             eval(scope, include_str!("../runtime/fetch/response.js"));
             eval(scope, include_str!("../runtime/fetch/request.js"));
@@ -216,10 +238,7 @@ impl JsRuntime {
 
                 let scope = &mut ContextScope::new(scope, context);
 
-                scope.set_slot(Rc::new(RefCell::new(JsState {
-                    handler: None,
-                    // timers: Timers::new(),
-                })));
+                scope.set_slot(Rc::new(RefCell::new(JsState::default())));
 
                 let context = Global::new(scope, context);
 
@@ -236,6 +255,7 @@ impl JsRuntime {
             rt.eval(include_str!("../runtime/console.js")).unwrap();
             rt.eval(include_str!("../runtime/navigator.js")).unwrap();
             rt.eval(include_str!("../runtime/events.js")).unwrap();
+            rt.eval(include_str!("../runtime/timers.js")).unwrap();
             rt.eval(include_str!("../runtime/fetch/headers.js"))
                 .unwrap();
             rt.eval(include_str!("../runtime/fetch/response.js"))
@@ -313,21 +333,8 @@ impl JsRuntime {
         let result = {
             let scope = &mut ContextScope::new(scope, context);
 
-            // Get handler - State must be dropped before the handler is called
-            let handler = {
-                let state = scope.get_slot::<JsStateRef>().expect("No state found");
-                let state = state.borrow_mut();
-                match state.handler.clone() {
-                    Some(handler) => handler,
-                    None => {
-                        println!("No handler registered");
-                        return None;
-                    }
-                }
-            };
-
             // Prepare handler call
-            let handler = v8::Local::new(scope, handler);
+            let handler = Self::get_handler(scope).unwrap();
             let undefined = v8::undefined(scope).into();
 
             let event = event.to_value(scope);
@@ -343,24 +350,103 @@ impl JsRuntime {
         result
     }
 
+    fn get_handler<'a>(scope: &mut HandleScope<'a>) -> Option<Local<'a, v8::Function>> {
+        let handler = {
+            let state = scope.get_slot::<JsStateRef>().expect("No state found");
+            let state = state.borrow_mut();
+
+            match state.handler.clone() {
+                Some(handler) => handler,
+                None => {
+                    println!("No handler registered");
+                    return None;
+                }
+            }
+        };
+
+        // Prepare handler call
+        let handler = v8::Local::new(scope, handler);
+
+        Some(handler)
+    }
+
+    fn poll_timer(
+        cx: &mut std::task::Context,
+        scope: &mut v8::ContextScope<v8::HandleScope>,
+    ) -> std::task::Poll<bool> {
+        let state = scope.get_slot::<JsStateRef>().expect("No state found");
+
+        let timer = state.borrow_mut().timer;
+
+        let now = std::time::Instant::now();
+
+        match timer {
+            None => {
+                println!("Timer [void]");
+                std::task::Poll::Ready(true)
+            }
+            Some(time) => {
+                if time > now {
+                    let waker = cx.waker().clone();
+
+                    tokio::task::spawn(async move {
+                        tokio::time::sleep_until(time.into()).await;
+                        println!("Timer waked");
+                        waker.wake();
+                    });
+
+                    println!("Timer [pending]");
+
+                    std::task::Poll::Pending
+                } else {
+                    state.borrow_mut().timer = None;
+                    println!("Timer fired");
+
+                    // Wait for timer
+                    {
+                        let cb = v8::Function::new(
+                            scope,
+                            |scope: &mut v8::HandleScope,
+                             _args: v8::FunctionCallbackArguments,
+                             _rv: v8::ReturnValue| {
+                                // Prepare handler call
+                                let handler = Self::get_handler(scope).unwrap();
+                                let undefined = v8::undefined(scope).into();
+
+                                let message = RuntimeBasicMessage::new(String::from("timer"));
+                                let message = message.to_value(scope);
+
+                                // Call handler
+                                handler.call(scope, undefined, &[message]);
+                            },
+                        )
+                        .unwrap();
+
+                        scope.enqueue_microtask(cb)
+                    }
+
+                    std::task::Poll::Ready(false)
+                }
+            }
+        }
+    }
+
     pub async fn run_event_loop<'a>(&mut self) {
         let scope = &mut HandleScope::new(&mut self.isolate);
         let context = Local::new(scope, &self.context);
         let scope = &mut ContextScope::new(scope, context);
 
         loop {
-            // tokio::macros::support::poll_fn(|cx| Self::poll_timers(cx, scope)).await;
-
             scope.perform_microtask_checkpoint();
 
-            // let state = scope.get_slot::<super::JsStateRef>().expect("No state found");
+            let timers_task = tokio::macros::support::poll_fn(|cx| Self::poll_timer(cx, scope));
 
-            // // Check if we are done
-            // if state.borrow().timers.is_empty() {
-            //     break;
-            // }
+            let empty = timers_task.await;
 
-            break;
+            // Check if we are done
+            if empty {
+                break;
+            }
         }
     }
 }

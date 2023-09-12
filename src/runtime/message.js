@@ -1,5 +1,5 @@
 onMessage((message) => {
-  console.log("Got controller message", message);
+  console.log("Got controller message", JSON.stringify(message));
 
   switch (message.kind) {
     // Runtime fetch message
@@ -34,6 +34,9 @@ onMessage((message) => {
       );
 
       break;
+      case "timer":
+        __wakeUp();
+        break;
     default:
       console.warn(`Unknown message kind: "${message.kind}"`);
   }

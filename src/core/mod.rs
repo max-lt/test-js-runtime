@@ -1,12 +1,22 @@
-mod runtime;
 mod message;
+mod runtime;
 
 pub use message::RuntimeBasicMessage;
 pub use message::RuntimeMessage;
 pub use runtime::JsRuntime;
 
 pub struct JsState {
-    pub handler: Option<v8::Global<v8::Function>>
+    pub handler: Option<v8::Global<v8::Function>>,
+    pub timer: Option<std::time::Instant>,
+}
+
+impl Default for JsState {
+    fn default() -> Self {
+        JsState {
+            handler: None,
+            timer: None,
+        }
+    }
 }
 
 pub type JsStateRef = std::rc::Rc<std::cell::RefCell<JsState>>;
@@ -58,7 +68,6 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), EvalError::CompileError);
     }
-
 
     #[test]
     fn rt_should_have_eval() {
