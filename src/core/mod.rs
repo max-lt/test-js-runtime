@@ -5,6 +5,34 @@ pub use message::RuntimeBasicMessage;
 pub use message::RuntimeMessage;
 pub use runtime::JsRuntime;
 
+pub struct TaskHandler {
+    pub(super) tasks: std::collections::HashMap<u32, v8::Global<v8::Function>>,
+    next_id: u32,
+}
+
+impl TaskHandler {
+    pub fn new() -> TaskHandler {
+        TaskHandler {
+            tasks: std::collections::HashMap::new(),
+            next_id: 0,
+        }
+    }
+
+    pub fn create(&mut self, callback: v8::Global<v8::Function>) -> u32 {
+        let id = self.next_id;
+
+        self.next_id += 1;
+
+        self.tasks.insert(id, callback);
+
+        id
+    }
+
+    pub fn remove(&mut self, id: u32) {
+        self.tasks.remove(&id);
+    }
+}
+
 pub struct JsState {
     pub handler: Option<v8::Global<v8::Function>>,
     pub timer: Option<std::time::Instant>,
@@ -20,6 +48,7 @@ impl Default for JsState {
 }
 
 pub type JsStateRef = std::rc::Rc<std::cell::RefCell<JsState>>;
+
 
 #[cfg(test)]
 mod tests {

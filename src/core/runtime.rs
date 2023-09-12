@@ -17,6 +17,7 @@ use super::JsState;
 use super::JsStateRef;
 use super::RuntimeBasicMessage;
 use super::RuntimeMessage;
+use super::TaskHandler;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
@@ -36,6 +37,12 @@ impl std::error::Error for EvalError {}
 pub struct JsRuntime {
     pub(crate) isolate: v8::OwnedIsolate,
     pub(crate) context: Global<Context>,
+}
+
+async fn async_op() -> String {
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    "Hello from async".to_string()
 }
 
 extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
@@ -120,6 +127,57 @@ fn message_from_worker(
                 state.timer = Some(std::time::Instant::now() + delay);
             }
         }
+        "fetch" => {
+            let request = utils::get(scope, message, "request");
+            println!("request: {:?}", inspect_v8_value(request, scope));
+            let request = request.to_object(scope).unwrap();
+            let url = utils::get(scope, request, "url").to_rust_string_lossy(scope);
+
+            let callback = utils::get(scope, message, "sendResponse");
+            let callback = match v8::Local::<v8::Function>::try_from(callback) {
+                Ok(callback) => callback,
+                Err(_) => {
+                    utils::throw_type_error(scope, "sendResponse is not a function");
+                    return;
+                }
+            };
+
+            // Convert callback into a global handle
+            // let callback = v8::Global::new(scope, callback);
+            // let state = scope.get_slot::<JsStateRef>().unwrap();
+
+            let response = {
+                let response = v8::Object::new(scope);
+
+                let body = v8::String::new(scope, &format!("Response for {}", url)).unwrap();
+
+                let options = v8::Object::new(scope);
+
+                let status = v8::Integer::new(scope, 200);
+                utils::assign(scope, options, "status", status.into());
+
+                let status_text = v8::String::new(scope, "OK").unwrap();
+                utils::assign(scope, options, "statusText", status_text.into());
+
+                let headers = {
+                    let headers = v8::Object::new(scope);
+
+                    let content_type = v8::String::new(scope, "text/plain").unwrap();
+                    utils::assign(scope, headers, "content-type", content_type.into());
+
+                    headers
+                };
+                utils::assign(scope, options, "headers", headers.into());
+
+                utils::assign(scope, response, "body", body.into());
+
+                response
+            };
+
+            let undefined = v8::undefined(scope).into();
+
+            callback.call(scope, undefined, &[response.into()]);
+        }
         _ => {
             println!("Unknown message kind: {}", kind);
         }
@@ -176,6 +234,21 @@ fn eval(scope: &mut HandleScope, code: &str) {
     script.run(scope);
 }
 
+fn eval_runtime(scope: &mut ContextScope<HandleScope>) {
+    eval(scope, include_str!("../runtime/init.js"));
+    eval(scope, include_str!("../runtime/atob.js"));
+    eval(scope, include_str!("../runtime/btoa.js"));
+    eval(scope, include_str!("../runtime/console.js"));
+    eval(scope, include_str!("../runtime/navigator.js"));
+    eval(scope, include_str!("../runtime/events.js"));
+    eval(scope, include_str!("../runtime/timers.js"));
+    eval(scope, include_str!("../runtime/fetch/headers.js"));
+    eval(scope, include_str!("../runtime/fetch/response.js"));
+    eval(scope, include_str!("../runtime/fetch/request.js"));
+    eval(scope, include_str!("../runtime/fetch/fetch-event.js"));
+    eval(scope, include_str!("../runtime/fetch/fetch.js"));
+}
+
 impl JsRuntime {
     pub fn create_snapshot() {
         initialize_v8();
@@ -189,17 +262,7 @@ impl JsRuntime {
 
             let scope = &mut ContextScope::new(scope, context);
 
-            eval(scope, include_str!("../runtime/init.js"));
-            eval(scope, include_str!("../runtime/atob.js"));
-            eval(scope, include_str!("../runtime/btoa.js"));
-            eval(scope, include_str!("../runtime/console.js"));
-            eval(scope, include_str!("../runtime/navigator.js"));
-            eval(scope, include_str!("../runtime/events.js"));
-            eval(scope, include_str!("../runtime/timers.js"));
-            eval(scope, include_str!("../runtime/fetch/headers.js"));
-            eval(scope, include_str!("../runtime/fetch/response.js"));
-            eval(scope, include_str!("../runtime/fetch/request.js"));
-            eval(scope, include_str!("../runtime/fetch/fetch-event.js"));
+            eval_runtime(scope);
 
             scope.set_default_context(context);
         }
@@ -249,21 +312,10 @@ impl JsRuntime {
         };
 
         if !from_snapshot {
-            rt.eval(include_str!("../runtime/init.js")).unwrap();
-            rt.eval(include_str!("../runtime/atob.js")).unwrap();
-            rt.eval(include_str!("../runtime/btoa.js")).unwrap();
-            rt.eval(include_str!("../runtime/console.js")).unwrap();
-            rt.eval(include_str!("../runtime/navigator.js")).unwrap();
-            rt.eval(include_str!("../runtime/events.js")).unwrap();
-            rt.eval(include_str!("../runtime/timers.js")).unwrap();
-            rt.eval(include_str!("../runtime/fetch/headers.js"))
-                .unwrap();
-            rt.eval(include_str!("../runtime/fetch/response.js"))
-                .unwrap();
-            rt.eval(include_str!("../runtime/fetch/request.js"))
-                .unwrap();
-            rt.eval(include_str!("../runtime/fetch/fetch-event.js"))
-                .unwrap();
+            let scope = &mut HandleScope::new(&mut rt.isolate);
+            let context = Local::new(scope, &rt.context);
+            let scope = &mut ContextScope::new(scope, context);
+            eval_runtime(scope);
         }
 
         let time = time.elapsed().as_micros();

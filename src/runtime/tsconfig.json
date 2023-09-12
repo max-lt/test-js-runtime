@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["es2020"],
+    "strict": true,
+    "noImplicitAny": true,
+    "typeRoots": ["."]
+  }
+}
