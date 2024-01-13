@@ -8,7 +8,7 @@ name = "lib"
 path = "src/lib.rs"
 
 [dependencies]
-v8 = "0.75.1"
+v8 = "0.83.1"
 chrono = "0.4.28"
 actix-web = "4"
 env_logger = "0.10.0"
